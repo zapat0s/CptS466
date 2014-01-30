@@ -15,13 +15,20 @@
 #include <peripheral/int.h>
 #include <sys/attribs.h>
 
+#define COUNTER_STOPPED 0
+#define COUNTER_UP 1
+#define COUNTER_DOWN 2
 
 void setup_LEDs (void);
 void setup_buttons (void);
+void delay(int ms);
+
 
 int main (void)
 {
-    unsigned int led_state = 0;
+    unsigned int counter = 0;
+    unsigned int cState = 1;
+    unsigned int btnState;
 	// Variable declarations
 
 	// Setup/initialize ports
@@ -29,13 +36,73 @@ int main (void)
     setup_LEDs ();
     setup_buttons ();
 
-	while (1) // Embedded programs run forever
-	{
-            led_state = 0b1111<<10;
-            PORTB |= led_state;
-            delay(500);
+    while (1) // Embedded programs run forever
+    {
+        btnState = PORTA & (BIT_6 | BIT_7);
+        btnState = btnState >> 6;
+        if (btnState == 1)//btn 1 only pressed
+        {
+            // check to make sure that the person's fingers stay on just 
+            // that button
+            delay(100);
+            btnState = PORTA & (BIT_6 | BIT_7);
+            btnState = btnState >> 6;
+            if (btnState == 1)
+            {
+
+                cState = COUNTER_UP;
+            }
+
+
+
+        }
+        else if (btnState == 2)//btn 2 only pressed
+        {
+            // check to make sure that the person's fingers stay on just
+            // that button
+            delay(100);
+            btnState = PORTA & (BIT_6 | BIT_7);
+            btnState = btnState >> 6;
+            if (btnState == 2)
+            {
+
+                cState = COUNTER_DOWN;
+            }
+
+        }
+        if (btnState == 3)//btn 1 and 2 pressed
+        {
+            if (cState == COUNTER_STOPPED)
+            {
+               
+               counter = 0;
+               PORTB &= 0b1100001111111111;
+               LATB |= counter << 10;
+            }
+            cState = COUNTER_STOPPED;
+            delay(500); //give them time to get their fingers off the switches
+        }
+
+        
+        else if (cState == COUNTER_UP)
+        {
+            counter = (counter +1) % 8;
             PORTB &= 0b1100001111111111;
-	}
+            LATB |= counter << 10;
+            delay(1000);
+        }
+        else if (cState == COUNTER_DOWN)
+        {
+            counter = (counter - 1);
+            if (counter == -1)
+                counter = 7;
+            
+            PORTB &= 0b1100001111111111;
+            LATB |= counter << 10;
+            delay(1000);
+        }
+
+    }
 
 	return 0;
 }
