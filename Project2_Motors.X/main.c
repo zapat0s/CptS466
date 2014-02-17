@@ -16,6 +16,10 @@ void setupTimer2 (void);
 void setupOC(void);
 void setupHB ( void );
 void setupSwitch ( void );
+void setupInputCapture(void);
+
+int motor1ticks = 0;
+int motor2ticks = 0;
 
 int main (void)
 {
@@ -46,11 +50,18 @@ void configureInterrupts (void)
 
 	ConfigINT3 (EXT_INT_PRI_7 | RISING_EDGE_INT | EXT_INT_ENABLE);
 
+        setupInputCapture(); //set up the input capture interrupts
+
 	INTEnableInterrupts (); // Enable system wide interrupts
 }
 
 void setupTimer2 (void){
     OpenTimer2( T2_ON | T2_PS_1_1, 0x7FFF ); // The right argument determines the period of the output waveform
+
+}
+
+void setupTimer3 (void){
+    OpenTimer3( T3_ON | T3_PS_1_1, 0x7FFF ); // The right argument determines the period of the output waveform
 
 }
 
@@ -66,18 +77,35 @@ void setupOC(void)
 void setupHB ( void )
 {
     PORTSetPinsDigitalOut( IOPORT_D, BIT_7 ); //Dir pin
+    PORTClearBits(IOPORT_D,BIT_7);
     PORTSetPinsDigitalOut( IOPORT_D, BIT_1 ); //Enable pin
     PORTClearBits (IOPORT_D, BIT_1); // Make sure no waveform is outputted to Enable pin
+    PORTSetPinsDigitalIn(IOPORT_D,BIT_9); //Input capture pin
+    //PORTSetPinsDigitalIn(IOPORT_C,BIT_1);//Akso input capture pin (why do we need 2?)
+
 
     PORTSetPinsDigitalOut( IOPORT_D, BIT_6); //Dir pin
+    PORTSetBits(IOPORT_D,BIT_6);
     PORTSetPinsDigitalOut (IOPORT_D, BIT_2); //Enable pin
     PORTClearBits (IOPORT_D, BIT_2); // Make sure no waveform is outputted to Enable pin
+    PORTSetPinsDigitalIn(IOPORT_D,BIT_10); //Input capture pin
+    //PORTSetPinsDigitalIn(IOPORT_C,BIT_2);//Akso input capture pin
 
 }
 
 void setupSwitch ( void )
 {
     PORTSetPinsDigitalIn( IOPORT_A, BIT_14 ); // Triggers the interrupt, and hence motor will spin
+}
+
+void setupInputCapture(void)
+{
+    OpenCapture2(IC_ON | IC_CAP_16BIT | IC_IDLE_STOP | IC_FEDGE_FALL | IC_TIMER3_SRC | IC_INT_1CAPTURE | IC_EVERY_EDGE);
+    ConfigIntCapture2(IC_INT_ON | IC_INT_PRIOR_3 | IC_INT_SUB_PRIOR_0);
+    OpenCapture3(IC_ON | IC_CAP_16BIT | IC_IDLE_STOP | IC_FEDGE_FALL | IC_TIMER3_SRC | IC_INT_1CAPTURE | IC_EVERY_EDGE);
+    ConfigIntCapture3(IC_INT_ON | IC_INT_PRIOR_3 | IC_INT_SUB_PRIOR_0);
+    
+
 }
 
 void __ISR(_EXTERNAL_3_VECTOR, IPL7AUTO) INT3Handler(void)
@@ -90,4 +118,17 @@ void __ISR(_EXTERNAL_3_VECTOR, IPL7AUTO) INT3Handler(void)
     setupOC ();
 
     mINT3ClearIntFlag (); // Clear interrupt
+}
+
+void __ISR(_INPUT_CAPTURE_2_VECTOR,ipl3) Capture2Handler(void)
+{
+    motor1ticks++;
+    //DBPRINTF("Motor1Ticks: %d",motor1ticks);
+    mIC2ClearIntFlag();
+}
+void __ISR(_INPUT_CAPTURE_3_VECTOR,ipl3) Capture3Handler(void)
+{
+    motor2ticks++;
+    //DBPRINTF("Motor1Ticks: %d",motor1ticks);
+    mIC3ClearIntFlag();
 }
