@@ -84,17 +84,8 @@ void check_state()
     {
         if (statechange)
         {
-            //disable motor
-            //TRISDSET = 0x3;
-            /*PORTSetPinsDigitalIn (IOPORT_D, BIT_2);
-            PORTSetPinsDigitalIn (IOPORT_D, BIT_1);
-            PORTClearBits (IOPORT_D, BIT_1); // Make sure no waveform is outputted to Enable pin
-            PORTClearBits (IOPORT_D, BIT_2); // Make sure no waveform is outputted to Enable pin
-            */
             CloseOC2();
             CloseOC3();
-
-
             statechange = 0;
         }
     }
@@ -109,10 +100,67 @@ void check_state()
         if (calc_distances()>10)
         {
             statechange = 1;
+            state = 3;
+        }
+    }
+    if (state == 3)
+    {
+        if (statechange)
+        {
+            motor1ticks = 0;
+            motor2ticks = 0;
+            statechange = 0;
+        }
+        if (calc_distances()>15)
+        {
+            statechange = 1;
             state = 0;
         }
+    }
+    if (state == 2)
+    {
+        if (statechange)
+        {
+            OpenOC2( OC_ON | OC_TIMER_MODE16 | OC_TIMER2_SRC | OC_IDLE_STOP | OC_PWM_FAULT_PIN_DISABLE, MAX_DUTY, MAX_DUTY );
+            OpenOC3( OC_ON | OC_TIMER_MODE16 | OC_TIMER2_SRC | OC_IDLE_STOP | OC_PWM_FAULT_PIN_DISABLE, MAX_DUTY, MAX_DUTY );
+            statechange = 0;
+        }
+        if (calc_distances()>5)
+        {
+            statechange = 1;
+            state = 4;
+        }
+    }
+    if (state == 4)
+    {
+        if (statechange)
+        {
 
-
+            motor1ticks = 0;
+            motor2ticks = 0;
+            CloseOC3();
+            statechange = 0;
+        }
+        if (motor1ticks >= 120)
+        {
+            state = 5;
+            statechange = 1;
+        }
+    }
+    if (state == 5)
+    {
+        if (statechange)
+        {
+            motor1ticks = 0;
+            motor2ticks = 0;
+            OpenOC3( OC_ON | OC_TIMER_MODE16 | OC_TIMER2_SRC | OC_IDLE_STOP | OC_PWM_FAULT_PIN_DISABLE, MAX_DUTY, MAX_DUTY );
+            statechange = 0;
+        }
+        if (calc_distances()>5)
+        {
+            statechange = 1;
+            state = 4;
+        }
     }
 
 }
@@ -139,8 +187,9 @@ void adjust_speeds(void)
 {
     double current_ratio;
     //current_ratio = (double)OC2RS/(double)OC1RS;
-    if ((motor1ticks == 0) || (motor2ticks == 0))
+    if ((motor1ticks <= 30) || (motor2ticks <= 30))
         return; //dodge divide by zero errors
+    //as well as problems when putting the robot down on the ground.
     if (motor1ticks>motor2ticks)
     {
         current_ratio = (double)motor2ticks / (double)motor1ticks;
@@ -270,9 +319,11 @@ void __ISR(_EXTERNAL_3_VECTOR, IPL7AUTO) INT3Handler(void)
 //sw 2 interrupt handler
 void __ISR(_EXTERNAL_4_VECTOR, IPL7AUTO) INT4Handler(void)
 {
+
     statechange = 1;
     state = 2;
-    mINT3ClearIntFlag (); // Clear interrupt
+
+    mINT4ClearIntFlag (); // Clear interrupt
 }
 
 void __ISR(_INPUT_CAPTURE_2_VECTOR,ipl3) Capture2Handler(void)
