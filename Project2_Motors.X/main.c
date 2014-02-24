@@ -26,11 +26,16 @@ void setupSwitch ( void );
 void setupInputCapture(void);
 void adjust_speeds(void);
 void delay(int ms);
+void check_state();
 double calc_distances(void);
 
 
 int motor1ticks = 0;
 int motor2ticks = 0;
+
+int state = 0;
+
+int statechange = 1;
 
 // Globals for setting up pmod CLS
 unsigned char enable_display[] = {27, '[', '3', 'e', '\0'};
@@ -60,10 +65,11 @@ int main (void)
 
 	while (1)
 	{
+            check_state();
             i = 1024*1024;//insert some delay
             while(i--);
             ft = calc_distances();
-            sprintf(clsbuffer,"%d,%d : %lf ",motor2ticks,motor1ticks,ft);
+            sprintf(clsbuffer,"%d,%d : %f ",motor2ticks,motor1ticks,ft);
             putsUART2(home_cursor);
             putsUART2(clsbuffer);
             //adjust the speeds to be in sync
@@ -71,6 +77,44 @@ int main (void)
 	}
 
 	return 0;
+}
+void check_state()
+{
+    if (state == 0)
+    {
+        if (statechange)
+        {
+            //disable motor
+            //TRISDSET = 0x3;
+            /*PORTSetPinsDigitalIn (IOPORT_D, BIT_2);
+            PORTSetPinsDigitalIn (IOPORT_D, BIT_1);
+            PORTClearBits (IOPORT_D, BIT_1); // Make sure no waveform is outputted to Enable pin
+            PORTClearBits (IOPORT_D, BIT_2); // Make sure no waveform is outputted to Enable pin
+            */
+            CloseOC2();
+            CloseOC3();
+
+
+            statechange = 0;
+        }
+    }
+    if (state == 1)
+    {
+        if (statechange)
+        {
+            OpenOC2( OC_ON | OC_TIMER_MODE16 | OC_TIMER2_SRC | OC_IDLE_STOP | OC_PWM_FAULT_PIN_DISABLE, MAX_DUTY, MAX_DUTY );
+            OpenOC3( OC_ON | OC_TIMER_MODE16 | OC_TIMER2_SRC | OC_IDLE_STOP | OC_PWM_FAULT_PIN_DISABLE, MAX_DUTY, MAX_DUTY );
+            statechange = 0;
+        }
+        if (calc_distances()>10)
+        {
+            statechange = 1;
+            state = 0;
+        }
+
+
+    }
+
 }
 
 double calc_distances(void)
@@ -116,6 +160,8 @@ void configureInterrupts (void)
 	INTEnableSystemMultiVectoredInt ();
 
 	ConfigINT3 (EXT_INT_PRI_7 | RISING_EDGE_INT | EXT_INT_ENABLE);
+        ConfigINT4 (EXT_INT_PRI_7 | RISING_EDGE_INT | EXT_INT_ENABLE);
+
 
         setupInputCapture(); //set up the input capture interrupts
 
@@ -163,6 +209,8 @@ void setupHB ( void )
 void setupSwitch ( void )
 {
     PORTSetPinsDigitalIn( IOPORT_A, BIT_14 ); // Triggers the interrupt, and hence motor will spin
+    PORTSetPinsDigitalIn( IOPORT_A, BIT_15 ); // Triggers the interrupt, and hence motor will spin
+
 }
 
 void setupInputCapture(void)
@@ -212,16 +260,18 @@ void delay(int ms)
         asm("nop");
 }
 
-
+//sw 1 interrupt handler
 void __ISR(_EXTERNAL_3_VECTOR, IPL7AUTO) INT3Handler(void)
 {
-    //Turn on Timer
-    //OpenTimer2( T2_ON );
-    //setupTimer2 ();
-    //Turn on OCR
-   // OpenOC1( OC_ON );
-    //setupOC ();
-
+    statechange = 1;
+    state = 1;
+    mINT3ClearIntFlag (); // Clear interrupt
+}
+//sw 2 interrupt handler
+void __ISR(_EXTERNAL_4_VECTOR, IPL7AUTO) INT4Handler(void)
+{
+    statechange = 1;
+    state = 2;
     mINT3ClearIntFlag (); // Clear interrupt
 }
 
