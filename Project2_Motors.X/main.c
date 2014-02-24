@@ -10,21 +10,40 @@
 #pragma config FSOSCEN = OFF // Secondary oscillator enable
 
 #define SYSTEM_CLOCK		80000000
+#define DESIRED_BAUD_RATE	9600
 
+#define MAX_DUTY                0x5FFF
+#define FUDGE_FACTOR            0x500
+
+void setup_UARTPORTS(void);
+void initialize_CLS (void);
+void setup_UART2 (unsigned int pb_clock);
 void configureInterrupts (void);
 void setupTimer2 (void);
 void setupOC(void);
 void setupHB ( void );
 void setupSwitch ( void );
 void setupInputCapture(void);
+void adjust_speeds(void);
+void delay(int ms);
+double calc_distances(void);
+
 
 int motor1ticks = 0;
 int motor2ticks = 0;
 
+// Globals for setting up pmod CLS
+unsigned char enable_display[] = {27, '[', '3', 'e', '\0'};
+unsigned char set_cursor[] = {27, '[', '1', 'c', '\0'};
+unsigned char home_cursor[] = {27, '[', 'j', '\0'};
+unsigned char wrap_line[] = {27, '[', '0', 'h', '\0'};
+
 int main (void)
 {
+        int i;
+        double ft = 0;
         unsigned int pbClock = 0;
-
+        char clsbuffer[80];
         pbClock = SYSTEMConfigPerformance (SYSTEM_CLOCK);
 
         //Setups
@@ -32,16 +51,64 @@ int main (void)
         setupHB();
         setupTimer2();
         setupOC();
+        setup_UARTPORTS();
+        setup_UART2(pbClock);
+        initialize_CLS();
         configureInterrupts();
+
+        putsUART2("Hello World");
 
 	while (1)
 	{
-
+            i = 1024*1024;//insert some delay
+            while(i--);
+            ft = calc_distances();
+            sprintf(clsbuffer,"%d,%d : %lf ",motor2ticks,motor1ticks,ft);
+            putsUART2(home_cursor);
+            putsUART2(clsbuffer);
+            //adjust the speeds to be in sync
+            adjust_speeds();
 	}
 
 	return 0;
 }
 
+double calc_distances(void)
+{
+    //wheel circumference = 9 inches
+    //number of ticks per full revolution = 120
+    double feet_traveled;
+    double miles_per_hour;
+    int avg_motor_ticks;
+    
+    avg_motor_ticks = (motor1ticks+motor2ticks)/2;
+
+    feet_traveled = ((double)avg_motor_ticks / 120.0) * .75;
+
+    return feet_traveled;
+    
+
+
+}
+
+void adjust_speeds(void)
+{
+    double current_ratio;
+    //current_ratio = (double)OC2RS/(double)OC1RS;
+    if ((motor1ticks == 0) || (motor2ticks == 0))
+        return; //dodge divide by zero errors
+    if (motor1ticks>motor2ticks)
+    {
+        current_ratio = (double)motor2ticks / (double)motor1ticks;
+        OC2RS = current_ratio * MAX_DUTY - FUDGE_FACTOR;
+    }
+    else if (motor1ticks<motor2ticks)
+    {
+        current_ratio = (double)motor1ticks / (double)motor2ticks;
+        OC3RS = current_ratio * MAX_DUTY - FUDGE_FACTOR;
+    }
+
+}
 void configureInterrupts (void)
 {
         // JF01 - RA14 - INT3 - SW1
@@ -69,8 +136,8 @@ void setupOC(void)
 {
     PORTSetBits( IOPORT_D, BIT_8 ); //set h bridge dir
     // The right most arguments of the OpenOC1 call represent the duty cycle of the output waveform
-    OpenOC2( OC_ON | OC_TIMER_MODE16 | OC_TIMER2_SRC | OC_IDLE_STOP | OC_PWM_FAULT_PIN_DISABLE, 0x3FFF, 0X3FFF );
-    OpenOC3( OC_ON | OC_TIMER_MODE16 | OC_TIMER2_SRC | OC_IDLE_STOP | OC_PWM_FAULT_PIN_DISABLE, 0x3FFF, 0X3FFF );
+    OpenOC2( OC_ON | OC_TIMER_MODE16 | OC_TIMER2_SRC | OC_IDLE_STOP | OC_PWM_FAULT_PIN_DISABLE, MAX_DUTY, MAX_DUTY );
+    OpenOC3( OC_ON | OC_TIMER_MODE16 | OC_TIMER2_SRC | OC_IDLE_STOP | OC_PWM_FAULT_PIN_DISABLE, MAX_DUTY, MAX_DUTY );
 
 }
 
@@ -107,15 +174,53 @@ void setupInputCapture(void)
     
 
 }
+void setup_UARTPORTS(void)
+{
+    // UART 2 port pins - connected to pmod CLS
+	/* JH-01 U2CTS/RF12 			RF12
+   	   JH-02 PMA8/U2TX/CN18/RF5 		RF5
+           JH-03 PMA9/U2RX/CN17/RF4 	        RF4
+	   JH-04 U2RTS/BCLK2/RF13 	        RF13 */
+
+	PORTSetPinsDigitalIn (IOPORT_F, BIT_4);
+	PORTSetPinsDigitalOut (IOPORT_F, BIT_5);
+}
+
+void setup_UART2 (unsigned int pb_clock)
+{
+	// OpenUART2( config1, config2, ubrg)
+	OpenUART2 (UART_EN | UART_IDLE_CON | UART_RX_TX | UART_DIS_WAKE | UART_DIS_LOOPBACK | UART_DIS_ABAUD | UART_NO_PAR_8BIT | UART_1STOPBIT | UART_IRDA_DIS |
+               UART_MODE_FLOWCTRL | UART_DIS_BCLK_CTS_RTS | UART_NORMAL_RX | UART_BRGH_SIXTEEN,
+               UART_TX_PIN_LOW | UART_RX_ENABLE | UART_TX_ENABLE | UART_INT_TX | UART_INT_RX_CHAR | UART_ADR_DETECT_DIS	| UART_RX_OVERRUN_CLEAR,
+			   mUARTBRG(pb_clock, DESIRED_BAUD_RATE));
+}
+
+void initialize_CLS (void)
+{
+	putsUART2 (enable_display);
+	putsUART2 (set_cursor);
+	putsUART2 (home_cursor);
+	putsUART2 (wrap_line);
+}
+
+//stalls program execution for ms milliseconds
+void delay(int ms)
+{
+
+    unsigned long int count = 0;
+    for (count = 0; count < ms * 40; count++)
+        asm("nop");
+}
+
 
 void __ISR(_EXTERNAL_3_VECTOR, IPL7AUTO) INT3Handler(void)
 {
     //Turn on Timer
     //OpenTimer2( T2_ON );
-    setupTimer2 ();
+    //setupTimer2 ();
     //Turn on OCR
    // OpenOC1( OC_ON );
-    setupOC ();
+    //setupOC ();
 
     mINT3ClearIntFlag (); // Clear interrupt
 }
