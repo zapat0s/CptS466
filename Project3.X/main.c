@@ -85,6 +85,9 @@ int main (void)
         double ft = 0;
         unsigned int pbClock = 0;
         char clsbuffer[80];
+        int temperature;
+        int num_iterations = 0;
+        int avgtemp;
         pbClock = SYSTEMConfigPerformance (SYSTEM_CLOCK);
 
         //Setups
@@ -107,12 +110,20 @@ int main (void)
             i = 1024*1024;//insert some delay
             while(i--);
             ft = calc_distances();
-            sprintf(clsbuffer,"%d,%d : %f ",motor2ticks,motor1ticks,ft);
+            temperature = getTemp();
+            //convert to ferengtheight
+            temperature = ((double)temperature * 1.8 )+32;
+            //compute average
+            avgtemp += temperature;
+            avgtemp = avgtemp/2;
+            //keep in mind this is a weighted average that weights later temps way higher than newer ones.
+            
+            sprintf(clsbuffer,"%f ft %df  avg: %df",ft,temperature,avgtemp);
             clsPrint(home_cursor);
             clsPrint(clsbuffer);
             //adjust the speeds to be in sync
             adjust_speeds();
-            getTemp();
+            
 	}
 
 
@@ -419,7 +430,7 @@ double getTemp(void)
 {
     INT16 temp;
     //
-    // Read the data back from the EEPROM.
+    // Read the data back from the Temp Sensor.
     //
 
     // Initialize the data buffer
@@ -427,13 +438,13 @@ double getTemp(void)
     i2cData[0] = SlaveAddress.byte;
     DataSz = 1;
 
-    // Start the transfer to read the EEPROM.
+    // Start the transfer to read the Temp Sensor.
     if( !StartTransfer(FALSE) )
     {
         while(1);
     }
 
-    // Address the EEPROM.
+    // Address the Temp Sensor.
     Index = 0;
     while( Success & (Index < DataSz) )
     {
@@ -456,7 +467,7 @@ double getTemp(void)
         }
     }
 
-    // Restart and send the EEPROM's internal address to switch to a read transfer
+    // Restart and send the Temp Sensor's internal address to switch to a read transfer
     if(Success)
     {
         // Send a Repeated Started condition
@@ -521,10 +532,10 @@ double getTemp(void)
     BOOL TransmitOneByte( UINT8 data )
 
   Summary:
-    This transmits one byte to the EEPROM.
+    This transmits one byte to the Temp Sensor.
 
   Description:
-    This transmits one byte to the EEPROM, and reports errors for any bus
+    This transmits one byte to the Temp Sensor, and reports errors for any bus
     collisions.
 
   Precondition:
@@ -570,10 +581,10 @@ BOOL TransmitOneByte( UINT8 data )
     BOOL StartTransfer( BOOL restart )
 
   Summary:
-    Starts (or restarts) a transfer to/from the EEPROM.
+    Starts (or restarts) a transfer to/from the Temp Sensor.
 
   Description:
-    This routine starts (or restarts) a transfer to/from the EEPROM, waiting (in
+    This routine starts (or restarts) a transfer to/from the Temp Sensor, waiting (in
     a blocking loop) until the start (or re-start) condition has completed.
 
   Precondition:
@@ -635,10 +646,10 @@ BOOL StartTransfer( BOOL restart )
     void StopTransfer( void )
 
   Summary:
-    Stops a transfer to/from the EEPROM.
+    Stops a transfer to/from the Temp Sensor.
 
   Description:
-    This routine Stops a transfer to/from the EEPROM, waiting (in a
+    This routine Stops a transfer to/from the Temp Sensor, waiting (in a
     blocking loop) until the Stop condition has completed.
 
   Precondition:
