@@ -1,3 +1,12 @@
+/*  Project 3: SPI and I2C
+ *  CPTS466
+ *  Programmed by Alex Schuldberg and Joshua Clark
+ *  NOTE: Some open source code was utilized for the I2C procedures from this
+ *  link:
+ * http://ww1.microchip.com/downloads/en/DeviceDoc/PIC32_I2C_CodeExample_041613.zip
+ *  The code was however heavily modified to work for this project
+ */
+
 #include <plib.h>
 #include <p32xxxx.h>
 #include <stdlib.h>
