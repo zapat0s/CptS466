@@ -52,6 +52,21 @@
 #define COUNT 1
 #define STOP 2
 
+//FUNTIME CONSTANTS
+#define SYS_CLOCK		80000000
+#define SYSTEM_CLOCK		80000000
+#define DESIRED_BAUD_RATE	9600
+
+#define MAX_DUTY                0x5FFF
+#define FUDGE_FACTOR            0x500
+
+#define GetSystemClock()            (SYS_CLOCK)
+#define GetPeripheralClock()        (SYS_CLOCK) // FPBDIV = DIV_1
+#define GetInstructionClock()       (SYS_CLOCK)
+#define I2C_CLOCK_FREQ              100000
+
+#define TMP2_ADDRESS            0x4B
+
 // Globals
 int count;
 unsigned int direction, state;
@@ -62,6 +77,20 @@ static char set_cursor[] = {27, '[', '1', 'c', '\0'};
 static char home_cursor[] = {27, '[', 'j', '\0'};
 static char wrap_line[] = {27, '[', '0', 'h', '\0'};
 
+//Globals for I2C
+UINT8               i2cData[] = {'a', 27, '[', '3', 'e', '\0', 27, '[', '1', 'c', '\0', 27, '[', 'j', '\0', 'H', 'i', '\0'};
+I2C_7_BIT_ADDRESS   SlaveAddress;
+int                 Index;
+int                 DataSz;
+UINT32              actualClock;
+BOOL                Acknowledged;
+BOOL                Success = TRUE;
+UINT8               i2cbyte;
+
+//Globals for display
+int tempInDegreesF;
+int avgTemperatureInF;
+
 // Yes, don't forget your prototypes
 // Prototypes go here, or in a .h file, which you would also need to #include
 static void prvSetupHardware( void );
@@ -70,10 +99,18 @@ void setup_SPI2 (void);
 void initialize_CLS (void);
 void clsPrint(char* str);
 
+//I2C
+void setupI2C(void);
+BOOL TransmitOneByte( UINT8 data );
+BOOL StartTransfer( BOOL restart );
+void StopTransfer( void );
+double getTemp(void);
+
 // Tasks
 void vTaskButtons (void *pvParameters);
 void vTaskDisplay (void *pvParameters);
 void vTaskCount (void *pvParameters);
+void vTaskTemperature(void *pvParameters);
 
 int main (void)
 {
@@ -85,6 +122,7 @@ int main (void)
 
         prvSetupHardware ();
 
+
         // Can you draw the execution pattern diagram for these tasks?
         xTaskCreate (vTaskButtons, "Poll Buttons", configMINIMAL_STACK_SIZE, NULL,
                      tskIDLE_PRIORITY + 2, NULL);
@@ -92,7 +130,8 @@ int main (void)
                      tskIDLE_PRIORITY + 1, NULL);
         xTaskCreate (vTaskCount, "Count", configMINIMAL_STACK_SIZE, NULL,
                      tskIDLE_PRIORITY + 1, NULL);
-
+        xTaskCreate (vTaskTemperature, "Temperature", configMINIMAL_STACK_SIZE, NULL,
+                     tskIDLE_PRIORITY + 1, NULL);
         vTaskStartScheduler ();
 
         // Should not reach this point!
@@ -160,8 +199,8 @@ void vTaskDisplay (void *pvParameters)
     char clsbuff[64];
     while(1)
     {
-        sprintf(clsbuff,"%d,%X",count,count);
-        clsPrint(home_cursor);
+        sprintf(clsbuff,"%d,%X,%d",count,count,tempInDegreesF);
+        SpiChnPutS (2, home_cursor, 3);
         clsPrint(clsbuff);
 
         vTaskDelay (500 / portTICK_RATE_MS); // 0.5 s delay
@@ -190,6 +229,23 @@ void vTaskCount (void *pvParameters)
     }
 }
 
+//Temperature testing task
+void vTaskTemperature(void * pvParameters)
+{
+    int samples = 0;
+    double temperature;
+    while(1)
+    {
+        samples++;
+        temperature = getTemp();
+            //convert to ferengtheight
+        temperature = ((double)temperature * 1.8 )+32;
+        tempInDegreesF = temperature;
+        avgTemperatureInF = (avgTemperatureInF * (samples - 1) + temperature)/samples;
+
+        vTaskDelay (1000/portTICK_RATE_MS);
+    }
+}
 /*************************************************************
  * Function:                                                 *
  * Date Created:                                             *
@@ -224,6 +280,7 @@ static void prvSetupHardware( void )
 	PORTSetPinsDigitalIn(IOPORT_A, BIT_6| BIT_7);
         setup_SPI2();
         initialize_CLS ();
+        setupI2C();
 
 }
 /*-----------------------------------------------------------*/
@@ -352,4 +409,279 @@ void clsPrint(char* str)
 {
     SpiChnPutS (2, str, strlen(str) + 1);
 
+}
+
+//sets up the I2C
+void setupI2C(void)
+{
+    //UINT32 actualClock;
+    PORTSetPinsDigitalOut (IOPORT_A, BIT_2);
+    PORTSetPinsDigitalIn(IOPORT_A, BIT_3);
+    actualClock = I2CSetFrequency(I2C2, GetPeripheralClock(), I2C_CLOCK_FREQ);
+    if ( abs(actualClock-I2C_CLOCK_FREQ) > I2C_CLOCK_FREQ/10 )
+    {
+        DBPRINTF("Error: I2C1 clock frequency (%u) error exceeds 10%%.\n", (unsigned)actualClock);
+    }
+    I2CEnable(I2C2, TRUE);
+
+}
+
+//gets the temperature from the temp sensor
+double getTemp(void)
+{
+    INT16 temp;
+    //
+    // Read the data back from the Temp Sensor.
+    //
+
+    // Initialize the data buffer
+    I2C_FORMAT_7_BIT_ADDRESS(SlaveAddress, TMP2_ADDRESS, I2C_WRITE);
+    i2cData[0] = SlaveAddress.byte;
+    DataSz = 1;
+
+    // Start the transfer to read the Temp Sensor.
+    if( !StartTransfer(FALSE) )
+    {
+        while(1);
+    }
+
+    // Address the Temp Sensor.
+    Index = 0;
+    while( Success & (Index < DataSz) )
+    {
+        // Transmit a byte
+        if (TransmitOneByte(i2cData[Index]))
+        {
+            // Advance to the next byte
+            Index++;
+        }
+        else
+        {
+            Success = FALSE;
+        }
+
+        // Verify that the byte was acknowledged
+        if(!I2CByteWasAcknowledged(I2C2))
+        {
+            DBPRINTF("Error: Sent byte was not acknowledged\n");
+            Success = FALSE;
+        }
+    }
+
+    // Restart and send the Temp Sensor's internal address to switch to a read transfer
+    if(Success)
+    {
+        // Send a Repeated Started condition
+        if( !StartTransfer(TRUE) )
+        {
+            while(1);
+        }
+
+        // Transmit the address with the READ bit set
+        I2C_FORMAT_7_BIT_ADDRESS(SlaveAddress, TMP2_ADDRESS, I2C_READ);
+        if (TransmitOneByte(SlaveAddress.byte))
+        {
+            // Verify that the byte was acknowledged
+            if(!I2CByteWasAcknowledged(I2C2))
+            {
+                DBPRINTF("Error: Sent byte was not acknowledged\n");
+                Success = FALSE;
+            }
+        }
+        else
+        {
+            Success = FALSE;
+        }
+    }
+
+    // Read the data from the desired address
+    if(Success)
+    {
+        if(I2CReceiverEnable(I2C2, TRUE) == I2C_RECEIVE_OVERFLOW)
+        {
+            DBPRINTF("Error: I2C Receive Overflow\n");
+            Success = FALSE;
+        }
+        else
+        {
+            while(!I2CReceivedDataIsAvailable(I2C2));
+            i2cbyte = I2CGetByte(I2C2);
+            temp = i2cbyte << 8;
+            //while(!I2CReceivedDataIsAvailable(I2C2));
+            i2cbyte = I2CGetByte(I2C2);
+            temp |= i2cbyte;
+            temp = temp >> 3;
+            temp = (float)temp * 0.0625;
+        }
+
+    }
+
+    // End the transfer (stop here if an error occured)
+    StopTransfer();
+    if(!Success)
+    {
+        while(1);
+    }
+
+    return temp;
+
+}
+
+
+/*******************************************************************************
+  Function:
+    BOOL TransmitOneByte( UINT8 data )
+
+  Summary:
+    This transmits one byte to the Temp Sensor.
+
+  Description:
+    This transmits one byte to the Temp Sensor, and reports errors for any bus
+    collisions.
+
+  Precondition:
+    The transfer must have been previously started.
+
+  Parameters:
+    data    - Data byte to transmit
+
+  Returns:
+    TRUE    - Data was sent successfully
+    FALSE   - A bus collision occured
+
+  Example:
+    <code>
+    TransmitOneByte(0xAA);
+    </code>
+
+  Remarks:
+    This is a blocking routine that waits for the transmission to complete.
+  *****************************************************************************/
+
+BOOL TransmitOneByte( UINT8 data )
+{
+    // Wait for the transmitter to be ready
+    while(!I2CTransmitterIsReady(I2C2));
+
+    // Transmit the byte
+    if(I2CSendByte(I2C2, data) == I2C_MASTER_BUS_COLLISION)
+    {
+        DBPRINTF("Error: I2C Master Bus Collision\n");
+        return FALSE;
+    }
+
+    // Wait for the transmission to finish
+    while(!I2CTransmissionHasCompleted(I2C2));
+
+    return TRUE;
+}
+
+
+/*******************************************************************************
+  Function:
+    BOOL StartTransfer( BOOL restart )
+
+  Summary:
+    Starts (or restarts) a transfer to/from the Temp Sensor.
+
+  Description:
+    This routine starts (or restarts) a transfer to/from the Temp Sensor, waiting (in
+    a blocking loop) until the start (or re-start) condition has completed.
+
+  Precondition:
+    The I2C module must have been initialized.
+
+  Parameters:
+    restart - If FALSE, send a "Start" condition
+            - If TRUE, send a "Restart" condition
+
+  Returns:
+    TRUE    - If successful
+    FALSE   - If a collision occured during Start signaling
+
+  Example:
+    <code>
+    StartTransfer(FALSE);
+    </code>
+
+  Remarks:
+    This is a blocking routine that waits for the bus to be idle and the Start
+    (or Restart) signal to complete.
+  *****************************************************************************/
+
+BOOL StartTransfer( BOOL restart )
+{
+    I2C_STATUS  status;
+
+    // Send the Start (or Restart) signal
+    if(restart)
+    {
+        I2CRepeatStart(I2C2);
+    }
+    else
+    {
+        // Wait for the bus to be idle, then start the transfer
+        while( !I2CBusIsIdle(I2C2) );
+
+        if(I2CStart(I2C2) != I2C_SUCCESS)
+        {
+            DBPRINTF("Error: Bus collision during transfer Start\n");
+            return FALSE;
+        }
+    }
+
+    // Wait for the signal to complete
+    do
+    {
+        status = I2CGetStatus(I2C2);
+
+    } while ( !(status & I2C_START) );
+
+    return TRUE;
+}
+
+
+
+/*******************************************************************************
+  Function:
+    void StopTransfer( void )
+
+  Summary:
+    Stops a transfer to/from the Temp Sensor.
+
+  Description:
+    This routine Stops a transfer to/from the Temp Sensor, waiting (in a
+    blocking loop) until the Stop condition has completed.
+
+  Precondition:
+    The I2C module must have been initialized & a transfer started.
+
+  Parameters:
+    None.
+
+  Returns:
+    None.
+
+  Example:
+    <code>
+    StopTransfer();
+    </code>
+
+  Remarks:
+    This is a blocking routine that waits for the Stop signal to complete.
+  *****************************************************************************/
+
+void StopTransfer( void )
+{
+    I2C_STATUS  status;
+
+    // Send the Stop signal
+    I2CStop(I2C2);
+
+    // Wait for the signal to complete
+    do
+    {
+        status = I2CGetStatus(I2C2);
+
+    } while ( !(status & I2C_STOP) );
 }

@@ -6,6 +6,7 @@
                    projectFiles="true">
       <itemPath>Source/include/ConfigPerformance.h</itemPath>
       <itemPath>Source/include/FreeRTOSConfig.h</itemPath>
+      <itemPath>FreeRTOSConfig.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LinkerScript"
                    displayName="Linker Files"
@@ -44,7 +45,7 @@
         <platformTool>PK3OBPlatformTool</platformTool>
         <languageToolchain>XC32</languageToolchain>
         <languageToolchainVersion>1.31</languageToolchainVersion>
-        <platform>3</platform>
+        <platform>4</platform>
       </toolsSet>
       <compileType>
         <linkerTool>
