@@ -116,13 +116,14 @@ int accelZ;
 static void prvSetupHardware(void);
 void setupSPI_ports (void);
 //void setup_SPI1 (void);
+void setup_UART (void);
 void setup_SPI2 (void);
 
 void initialize_CLS (void);
-//void initialize_ACL (void);
+void initialize_ACL (void);
 
 void clsPrint(char* str);
-//void read_accelerometer (void);
+void read_accelerometer (void);
 
 void setupHB(void);
 void setupInputCapture(void);
@@ -189,7 +190,7 @@ void vTaskDisplay (void *pvParameters)
     {
         //read_accelerometer ();
         sprintf(clsbuff,"%d f,%d x,%d y,%d z",tempInDegreesF,accelX,accelY,accelZ);
-        SpiChnPutS (2, home_cursor, 3);
+        putsUART2(2, home_cursor, 3);
         clsPrint(clsbuff);
 
         vTaskDelay (500 / portTICK_RATE_MS); // 0.5 s delay
@@ -327,7 +328,7 @@ static void prvSetupHardware( void )
         // BTN1 ==> PA6
 	// BTN2 ==> PA7
 	PORTSetPinsDigitalIn(IOPORT_A, BIT_6| BIT_7);
-        setup_SPI1();
+        setup_UART();
         setup_SPI2();
         //initialize_ACL();
         initialize_CLS ();
@@ -444,13 +445,27 @@ void setupSPI_ports (void)
         PORTSetPinsDigitalIn (IOPORT_G, BIT_7);
 }
 //sets up the SPI for the CLS
-void setup_SPI1 (void)
+void setup_UART (void)
 {
-	SpiChnOpen (1, SPI_CON_MSTEN  | SPI_CON_MODE8 | SPI_CON_ON | CLK_POL_ACTIVE_LOW, 256);
+
+        // UART 2 port pins - connected to pmod CLS
+	/* JH-01 U2CTS/RF12 			RF12
+   	   JH-02 PMA8/U2TX/CN18/RF5 		RF5
+           JH-03 PMA9/U2RX/CN17/RF4 	        RF4
+	   JH-04 U2RTS/BCLK2/RF13 	        RF13 */
+
+	PORTSetPinsDigitalIn (IOPORT_F, BIT_4);
+	PORTSetPinsDigitalOut (IOPORT_F, BIT_5);
+
+        OpenUART2 (UART_EN | UART_IDLE_CON | UART_RX_TX | UART_DIS_WAKE | UART_DIS_LOOPBACK | UART_DIS_ABAUD | UART_NO_PAR_8BIT | UART_1STOPBIT | UART_IRDA_DIS |
+               UART_MODE_FLOWCTRL | UART_DIS_BCLK_CTS_RTS | UART_NORMAL_RX | UART_BRGH_SIXTEEN,
+               UART_TX_PIN_LOW | UART_RX_ENABLE | UART_TX_ENABLE | UART_INT_TX | UART_INT_RX_CHAR | UART_ADR_DETECT_DIS	| UART_RX_OVERRUN_CLEAR,
+			   mUARTBRG(pb_clock, DESIRED_BAUD_RATE));
+
 
 	// Create a falling edge pin SS to start communication
-	PORTSetBits (IOPORT_D, BIT_9);
-	PORTClearBits (IOPORT_D, BIT_9);
+	//PORTSetBits (IOPORT_D, BIT_9);
+	//PORTClearBits (IOPORT_D, BIT_9);
 }
 //sets up the SPI for the accellerometer
 void setup_SPI2 (void)
@@ -468,10 +483,10 @@ void setup_SPI2 (void)
 //initializes the CLS
 void initialize_CLS (void)
 {
-        SpiChnPutS (2, enable_display, 4);
-        SpiChnPutS (2, set_cursor, 4);
-        SpiChnPutS (2,  home_cursor, 3);
-        SpiChnPutS (2,  wrap_line, 4);
+        putsUART2 (enable_display);
+	putsUART2 (set_cursor);
+	putsUART2 (home_cursor);
+	putsUART2 (wrap_line);
 }
 
 //initializes the ACL
@@ -510,7 +525,8 @@ void read_accelerometer (void)
 //prints the designated string to the CLS via the SPI
 void clsPrint(char* str)
 {
-    SpiChnPutS (2, str, strlen(str) + 1);
+    putsUART2 (str);
+	
 }
 
 
