@@ -168,8 +168,8 @@ void vTaskDisplay (void *pvParameters)
     while(1)
     {
 
-        sprintf(clsbuff,"%d,%X,%d",count,count,tempInDegreesF);
-        SpiChnPutS (1, home_cursor, 3);
+        sprintf(clsbuff,"%d,%X,%d",tempInDegreesF);
+        SpiChnPutS (1,(unsigned int *) home_cursor, 3);
         clsPrint(clsbuff);
 
         vTaskDelay (500 / portTICK_RATE_MS); // 0.5 s delay
@@ -396,10 +396,10 @@ void setup_SPI2 (void)
 //initializes the CLS
 void initialize_CLS (void)
 {
-        SpiChnPutS (1, enable_display, 4);
-        SpiChnPutS (1, set_cursor, 4);
-        SpiChnPutS (1, home_cursor, 3);
-        SpiChnPutS (1, wrap_line, 4);
+        SpiChnPutS (1,(unsigned int *) enable_display, 4);
+        SpiChnPutS (1, (unsigned int *)set_cursor, 4);
+        SpiChnPutS (1, (unsigned int *) home_cursor, 3);
+        SpiChnPutS (1, (unsigned int *) wrap_line, 4);
 }
 
 //initializes the ACL
@@ -412,7 +412,7 @@ void initialize_ACL (void)
 //prints the designated string to the CLS via the SPI
 void clsPrint(char* str)
 {
-    SpiChnPutS (1, str, strlen(str) + 1);
+    SpiChnPutS (1, (unsigned int *)str, strlen(str) + 1);
 }
 
 
