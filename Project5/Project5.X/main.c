@@ -427,6 +427,13 @@ void initialize_CLS (void)
         SpiChnPutS (1, wrap_line, 4);
 }
 
+//initializes the ACL
+void initialize_ACL (void)
+{
+
+
+}
+
 
 //prints the designated string to the CLS via the SPI
 void clsPrint(char* str)
