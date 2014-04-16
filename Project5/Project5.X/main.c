@@ -106,6 +106,10 @@ static int motorState;
 static int tempInDegreesF;
 static int avgTemperatureInF;
 static float feet_traveled;
+int accelX;
+int accelY;
+int accelZ;
+
 
 // Yes, don't forget your prototypes
 // Prototypes go here, or in a .h file, which you would also need to #include
@@ -118,6 +122,8 @@ void initialize_CLS (void);
 void initialize_ACL (void);
 
 void clsPrint(char* str);
+void read_accelerometer (void);
+
 void setupHB(void);
 void setupInputCapture(void);
 void setupOC(void);
@@ -181,9 +187,9 @@ void vTaskDisplay (void *pvParameters)
     char clsbuff[64];
     while(1)
     {
-
-        sprintf(clsbuff,"%d %d %d",motor1ticks, motor2ticks,tempInDegreesF);
-        SpiChnPutS (1,(unsigned int *) home_cursor, 3);
+        //read_accelerometer ();
+        sprintf(clsbuff,"%d f,%d x,%d y,%d z",tempInDegreesF,accelX,accelY,accelZ);
+        SpiChnPutS (1, home_cursor, 3);
         clsPrint(clsbuff);
 
         vTaskDelay (500 / portTICK_RATE_MS); // 0.5 s delay
@@ -242,6 +248,7 @@ void vTaskMotorControl (void *pvParameters)
         }
         vTaskDelay(250 / portTICK_RATE_MS);
     }
+    
 }
 
 void vTaskAdjustSpeeds (void *pvParameters)
@@ -320,7 +327,9 @@ static void prvSetupHardware( void )
         // BTN1 ==> PA6
 	// BTN2 ==> PA7
 	PORTSetPinsDigitalIn(IOPORT_A, BIT_6| BIT_7);
+        setup_SPI1();
         setup_SPI2();
+        initialize_ACL();
         initialize_CLS ();
         setupI2C();
 
@@ -459,24 +468,49 @@ void setup_SPI2 (void)
 //initializes the CLS
 void initialize_CLS (void)
 {
-        SpiChnPutS (1,(unsigned int *) enable_display, 4);
-        SpiChnPutS (1, (unsigned int *)set_cursor, 4);
-        SpiChnPutS (1, (unsigned int *) home_cursor, 3);
-        SpiChnPutS (1, (unsigned int *) wrap_line, 4);
+        SpiChnPutS (1, enable_display, 4);
+        SpiChnPutS (1, set_cursor, 4);
+        SpiChnPutS (1,  home_cursor, 3);
+        SpiChnPutS (1,  wrap_line, 4);
 }
 
 //initializes the ACL
 void initialize_ACL (void)
 {
-    SpiChnPutS(2,(unsigned int *)set_format,2);
-    SpiChnPutS(2,(unsigned int *)measurement_mode,2);
+    SpiChnPutS(2,set_format,2);
+    SpiChnPutS(2,measurement_mode,2);
 
 }
+
+void read_accelerometer (void)
+{
+    char address;
+    UINT8 values[6];
+    int i;
+    //we have to set the most significant bit of the register to signal a read
+    address = 0x80 | 0x32;
+    //since we are doing a multi byte read we have to set bit 6 as well
+    address = address | 0x40;
+    SpiChnPutC(2,address);
+    for ( i = 0; i < 6;i++)
+    {
+        //SpiChnPutC(0x0); Not sure if we need this yet
+        values[i] = SpiChnReadC(2);
+    }
+
+    accelX = ((int)values[1]<<8) | (int)values[0];
+    accelY = ((int)values[3]<<8) | (int)values[2];
+    accelZ = ((int)values[5]<<8) | (int)values[4];
+    
+    
+    
+}
+
 
 //prints the designated string to the CLS via the SPI
 void clsPrint(char* str)
 {
-    SpiChnPutS (1, (unsigned int *)str, strlen(str) + 1);
+    SpiChnPutS (1, str, strlen(str) + 1);
 }
 
 
