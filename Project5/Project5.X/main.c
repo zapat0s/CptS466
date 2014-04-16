@@ -103,9 +103,11 @@ UINT8               i2cbyte;
 static int motorState;
 
 //Globals for display
-static int tempInDegreesF;
-static int avgTemperatureInF;
+static float tempInDegreesF;
+static float avgTemperatureInF;
 static float feet_traveled;
+static float total_traveled;
+static float avg_speed;
 int accelX;
 int accelY;
 int accelZ;
@@ -189,7 +191,7 @@ void vTaskDisplay (void *pvParameters)
     while(1)
     {
         //read_accelerometer ();
-        sprintf(clsbuff,"%d f,%d x,%d y,%d z",tempInDegreesF,accelX,accelY,accelZ);
+        sprintf(clsbuff,"%4.2ff, %4.1fft, %d x,%d y,%d z", tempInDegreesF, total_traveled, accelX, accelY, accelZ);
         putsUART2(home_cursor);
         clsPrint(clsbuff);
 
@@ -199,18 +201,13 @@ void vTaskDisplay (void *pvParameters)
 
 void vTaskMotorControl (void *pvParameters)
 {
-    char clsbuff[64];
     int state = 0;
     int switch_states;
     int avg_ticks = 0;
-    int count = 0;
     motorState = 0;
 
     while(1)
     {
-        sprintf(clsbuff,"stuck in motor control %d",count++);
-        putsUART2(home_cursor);
-        clsPrint(clsbuff);
         if(state == 0)
         {
             // Poll Buttons
@@ -225,58 +222,94 @@ void vTaskMotorControl (void *pvParameters)
             if(switch_states == 0b100000000000)
             {
                 setupOC();
+                motorState = 1;
+                state = 4;
+            }
+            motor1ticks = 0;
+            motor2ticks = 0;
+        }
+        if(state == 1) // Drive 10ft
+        {
+            avg_ticks = (motor1ticks + motor2ticks) / 2;
+            feet_traveled = ((double)avg_ticks / 120.0) * 0.75;
+            if(feet_traveled > 10.0)
+            {
+                CloseOC2();
                 CloseOC3();
+                motorState = 0;
+                vTaskDelay(1000 / portTICK_RATE_MS);
+                setupOC();
+                motorState = 1;
+                motor1ticks = 0;
+                motor2ticks = 0;
+                total_traveled += feet_traveled;
                 state = 2;
             }
         }
-        if(state == 1)
+        if(state == 2) // Drive 15ft
         {
             avg_ticks = (motor1ticks + motor2ticks) / 2;
             feet_traveled = ((double)avg_ticks / 120.0) * 0.75;
-            if(feet_traveled > 10.0)
+            if(feet_traveled > 15.0)
             {
                 CloseOC2();
                 CloseOC3();
+                motorState = 0;
+                total_traveled += feet_traveled;
                 state = 0;
             }
         }
-        if(state == 2)
-        {
-            // Right Turn
-            if(motor1ticks > 120)
-            {
-                setupOC();
-                motorState = 1;
-                state = 3;
-            }
-        }
-        if(state == 3)
+        if(state == 4) // Drive 5ft
         {
             avg_ticks = (motor1ticks + motor2ticks) / 2;
             feet_traveled = ((double)avg_ticks / 120.0) * 0.75;
-            if(feet_traveled > 10.0)
+            if(feet_traveled > 5.0)
+            {
+                setupOC();
+                CloseOC2();
+                motorState = 0;
+                motor1ticks = 0;
+                motor2ticks = 0;
+                total_traveled += feet_traveled;
+                state = 5;
+            }
+        }
+        if(state == 5) // Turn Right
+        {
+            if(motor2ticks > 120)
+            {
+                setupOC();
+                motorState = 6;
+                motor1ticks = 0;
+                motor2ticks = 0;
+                state = 6;
+            }
+        }
+        if(state == 6) // Drive 5ft
+        {
+            avg_ticks = (motor1ticks + motor2ticks) / 2;
+            feet_traveled = ((double)avg_ticks / 120.0) * 0.75;
+            if(feet_traveled > 5.0)
             {
                 CloseOC2();
                 CloseOC3();
+                motorState = 0;
+                total_traveled += feet_traveled;
                 state = 0;
             }
         }
         vTaskDelay(250 / portTICK_RATE_MS);
     }
-    
 }
 
 void vTaskAdjustSpeeds (void *pvParameters)
 {
-     float current_ratio = 0;
-    char clsbuff[64];
-    int count = 0;
+    float current_ratio = 0;
 
     while(1)
     {
 
         vTaskDelay(250 / portTICK_RATE_MS);
-        sprintf(clsbuff,"stuck in adjust speeds %d",count++);
 
         if(motorState != 1)
             continue;
