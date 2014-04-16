@@ -218,14 +218,14 @@ void vTaskMotorControl (void *pvParameters)
             if(switch_states == 0b100000000000)
             {
                 setupOC();
-                motorState = 1;
+                CloseOC3();
                 state = 2;
             }
         }
         if(state == 1)
         {
             avg_ticks = (motor1ticks + motor2ticks) / 2;
-            feet_traveled = ((double)avg_ticks / 120.0) * .75;
+            feet_traveled = ((double)avg_ticks / 120.0) * 0.75;
             if(feet_traveled > 10.0)
             {
                 CloseOC2();
@@ -238,13 +238,21 @@ void vTaskMotorControl (void *pvParameters)
             // Right Turn
             if(motor1ticks > 120)
             {
-                CloseOC3();
+                setupOC();
+                motorState = 1;
                 state = 3;
             }
         }
         if(state == 3)
         {
-            // drive 
+            avg_ticks = (motor1ticks + motor2ticks) / 2;
+            feet_traveled = ((double)avg_ticks / 120.0) * 0.75;
+            if(feet_traveled > 10.0)
+            {
+                CloseOC2();
+                CloseOC3();
+                state = 0;
+            }
         }
         vTaskDelay(250 / portTICK_RATE_MS);
     }
