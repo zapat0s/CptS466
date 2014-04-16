@@ -95,8 +95,12 @@ int avgTemperatureInF;
 // Prototypes go here, or in a .h file, which you would also need to #include
 static void prvSetupHardware( void );
 void setupSPI_ports (void);
+void setup_SPI1 (void);
 void setup_SPI2 (void);
+
 void initialize_CLS (void);
+void initialize_ACL (void);
+
 void clsPrint(char* str);
 
 //I2C
@@ -200,7 +204,7 @@ void vTaskDisplay (void *pvParameters)
     while(1)
     {
         sprintf(clsbuff,"%d,%X,%d",count,count,tempInDegreesF);
-        SpiChnPutS (2, home_cursor, 3);
+        SpiChnPutS (1, home_cursor, 3);
         clsPrint(clsbuff);
 
         vTaskDelay (500 / portTICK_RATE_MS); // 0.5 s delay
@@ -371,6 +375,18 @@ volatile unsigned long ul = 0;
 //sets up the ports for the SPI
 void setupSPI_ports (void)
 {
+        //SPI1
+        // Master Mode
+	/* SDO1 - Output - RD0
+	   SDI1 - Input - RC4
+	   SCK1 - Ouput - RD10
+	   SS1  - Output - RD9 */
+
+	PORTSetPinsDigitalOut (IOPORT_D, BIT_0 | BIT_9 | BIT_10);
+	PORTSetPinsDigitalIn (IOPORT_C, BIT_4);
+
+
+        //SPI2
         // Master Mode
         /* SDO1 - Output - RD6
            SDI1 - Input - RG7
@@ -380,8 +396,16 @@ void setupSPI_ports (void)
         PORTSetPinsDigitalOut (IOPORT_G, BIT_6 | BIT_8 | BIT_9);
         PORTSetPinsDigitalIn (IOPORT_G, BIT_7);
 }
-
 //sets up the SPI for the CLS
+void setup_SPI1 (void)
+{
+	SpiChnOpen (1, SPI_CON_MSTEN  | SPI_CON_MODE8 | SPI_CON_ON | CLK_POL_ACTIVE_LOW, 256);
+
+	// Create a falling edge pin SS to start communication
+	PORTSetBits (IOPORT_D, BIT_9);
+	PORTClearBits (IOPORT_D, BIT_9);
+}
+//sets up the SPI for the accellerometer
 void setup_SPI2 (void)
 {
         // void SpiChnOpen(int chn, SpiCtrlFlags config, unsigned int fpbDiv);
@@ -397,17 +421,17 @@ void setup_SPI2 (void)
 //initializes the CLS
 void initialize_CLS (void)
 {
-        SpiChnPutS (2, enable_display, 4);
-        SpiChnPutS (2, set_cursor, 4);
-        SpiChnPutS (2, home_cursor, 3);
-        SpiChnPutS (2, wrap_line, 4);
+        SpiChnPutS (1, enable_display, 4);
+        SpiChnPutS (1, set_cursor, 4);
+        SpiChnPutS (1, home_cursor, 3);
+        SpiChnPutS (1, wrap_line, 4);
 }
 
 
 //prints the designated string to the CLS via the SPI
 void clsPrint(char* str)
 {
-    SpiChnPutS (2, str, strlen(str) + 1);
+    SpiChnPutS (1, str, strlen(str) + 1);
 
 }
 
