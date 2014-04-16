@@ -21,6 +21,7 @@
 #include "task.h"
 #include "queue.h"
 #include "ConfigPerformance.h"
+#include "semphr.h"
 
 // Place your #pragma statements here, or in another .h file;
 // #pragma statements are used to set your operating clock frequency
@@ -43,9 +44,8 @@
 
 // Place your #define constants and macros here, or in another .h file
 
-#define COUNT_UP 1
-#define COUNT_DOWN 0
-#define COUNT_MAX 65535
+#define MAX_DUTY        0x5FFF
+#define FUDGE_FACTOR    0x500
 
 // States of program
 #define INIT 0
@@ -68,8 +68,10 @@
 #define TMP2_ADDRESS            0x4B
 
 // Globals
-int count;
-unsigned int direction, state;
+static int motor1ticks;
+static int motor2ticks;
+
+static xSemaphoreHandle motorControlSem = NULL;
 
 // Globals for setting up pmod CLS
 static char enable_display[] = {27, '[', '3', 'e', '\0'};
@@ -93,7 +95,7 @@ int avgTemperatureInF;
 
 // Yes, don't forget your prototypes
 // Prototypes go here, or in a .h file, which you would also need to #include
-static void prvSetupHardware( void );
+static void prvSetupHardware(void);
 void setupSPI_ports (void);
 void setup_SPI1 (void);
 void setup_SPI2 (void);
@@ -102,6 +104,10 @@ void initialize_CLS (void);
 void initialize_ACL (void);
 
 void clsPrint(char* str);
+void setupHB(void);
+void setupInputCapture(void);
+void setupOC(void);
+void setupSwitch(void);
 
 //I2C
 void setupI2C(void);
@@ -111,28 +117,38 @@ void StopTransfer( void );
 double getTemp(void);
 
 // Tasks
-void vTaskButtons (void *pvParameters);
 void vTaskDisplay (void *pvParameters);
+
+void vTaskMotorControl (void *pvParameters);
+void vTaskAdjustSpeeds (void *pvParameters);
 void vTaskCount (void *pvParameters);
 void vTaskTemperature(void *pvParameters);
+
 
 int main (void)
 {
 	// Variable declarations
 
+        vSemaphoreCreateBinary (motorControlSem);
 	// Setup/initialize ports
         setupSPI_ports();
+        setupSwitch();
+
+        OpenTimer2( T2_ON | T2_PS_1_1, 0x7FFF ); // The right argument determines the period of the output waveform
+        setupHB();
+        setupInputCapture();
+        
 	// Setup/initialize devices
 
         prvSetupHardware ();
 
 
         // Can you draw the execution pattern diagram for these tasks?
-        xTaskCreate (vTaskButtons, "Poll Buttons", configMINIMAL_STACK_SIZE, NULL,
-                     tskIDLE_PRIORITY + 2, NULL);
         xTaskCreate (vTaskDisplay, "Update Display", configMINIMAL_STACK_SIZE, NULL,
                      tskIDLE_PRIORITY + 1, NULL);
-        xTaskCreate (vTaskCount, "Count", configMINIMAL_STACK_SIZE, NULL,
+        xTaskCreate (vTaskMotorControl, "Motor Control", configMINIMAL_STACK_SIZE, NULL,
+                    tskIDLE_PRIORITY + 3, NULL);
+        xTaskCreate (vTaskAdjustSpeeds, "Adjust Speeds", configMINIMAL_STACK_SIZE, NULL,
                      tskIDLE_PRIORITY + 1, NULL);
         xTaskCreate (vTaskTemperature, "Temperature", configMINIMAL_STACK_SIZE, NULL,
                      tskIDLE_PRIORITY + 1, NULL);
@@ -146,63 +162,12 @@ int main (void)
 
 	return 0;
 }
-
-// This task turn on the LEDs
-void vTaskButtons (void *pvParameters)
-{
-    unsigned int button_states, button_flag;
-    
-    while(1)
-    {
-        // Poll Buttons
-        button_states = PORTRead(IOPORT_A);
-        button_states &= 0x000000C0;
-
-        switch(state)
-        {
-            case INIT: // Waiting for initial input
-                if(button_states == 0x00000040) // Button 1
-                {
-                    direction = COUNT_UP;
-                    count = 0;
-                    state = COUNT;
-                }
-                else if(button_states == 0x00000080) // Button 2
-                {
-                    direction = COUNT_DOWN;
-                    count = COUNT_MAX;
-                    state = COUNT;
-                }
-                break;
-
-            case COUNT: // Counting
-                if(button_states == 0x000000C0) // Button 1&2
-                {
-                    state = STOP;
-                    vTaskDelay(1000 / portTICK_RATE_MS); // 1s delay for slow fingers
-                }
-                break;
-
-            case STOP: // Stopped
-                if(button_states == 0x000000C0) // Button 1&2
-                {
-                    count = 0;
-                    state = 0;
-                    vTaskDelay(1000 / portTICK_RATE_MS); // 100ms delay for slow fingers
-                }
-                break;
-        }
-
-        vTaskDelay (2 / portTICK_RATE_MS); // 2 ms delay
-    }
-}
-
-// This task turns off the LEDS
 void vTaskDisplay (void *pvParameters)
 {
     char clsbuff[64];
     while(1)
     {
+
         sprintf(clsbuff,"%d,%X,%d",count,count,tempInDegreesF);
         SpiChnPutS (1, home_cursor, 3);
         clsPrint(clsbuff);
@@ -210,26 +175,36 @@ void vTaskDisplay (void *pvParameters)
         vTaskDelay (500 / portTICK_RATE_MS); // 0.5 s delay
     }
 }
-void vTaskCount (void *pvParameters)
+
+void vTaskMotorControl (void *pvParameters)
 {
+    int switch_states;
     while(1)
     {
-        if(state == COUNT) // Counting
-        {
-            if(direction == COUNT_UP)
-            {
-                count++;
-                if(count > COUNT_MAX)
-                    count = 0;
-            }
-            else if(direction == COUNT_DOWN)
-            {
-                count--;
-                if(count < 1)
-                    count = COUNT_MAX;
-            }
-        }
-        vTaskDelay (1000 / portTICK_RATE_MS); // 1 s delay
+        // Poll Buttons
+        switch_states = PORTRead(IOPORT_D);
+        switch_states &= 0b1010;
+        if(switch_states)
+            setupOC();
+    }
+}
+
+void vTaskAdjustSpeeds (void *pvParameters)
+{
+     double current_ratio;
+    //current_ratio = (double)OC2RS/(double)OC1RS;
+    if ((motor1ticks <= 30) || (motor2ticks <= 30))
+        return; //dodge divide by zero errors
+    //as well as problems when putting the robot down on the ground.
+    if (motor1ticks>motor2ticks)
+    {
+        current_ratio = (double)motor2ticks / (double)motor1ticks;
+        OC2RS = current_ratio * MAX_DUTY - FUDGE_FACTOR;
+    }
+    else if (motor1ticks<motor2ticks)
+    {
+        current_ratio = (double)motor1ticks / (double)motor2ticks;
+        OC3RS = current_ratio * MAX_DUTY - FUDGE_FACTOR;
     }
 }
 
@@ -434,11 +409,69 @@ void initialize_ACL (void)
 
 }
 
-
 //prints the designated string to the CLS via the SPI
 void clsPrint(char* str)
 {
     SpiChnPutS (1, str, strlen(str) + 1);
+}
+
+
+void setupHB ( void )
+{
+    PORTSetPinsDigitalOut( IOPORT_D, BIT_7 ); //Dir pin
+    PORTClearBits(IOPORT_D,BIT_7);
+    PORTSetPinsDigitalOut( IOPORT_D, BIT_1 ); //Enable pin
+    PORTClearBits (IOPORT_D, BIT_1); // Make sure no waveform is outputted to Enable pin
+    PORTSetPinsDigitalIn(IOPORT_D,BIT_9); //Input capture pin
+    //PORTSetPinsDigitalIn(IOPORT_C,BIT_1);//Akso input capture pin (why do we need 2?)
+
+
+    PORTSetPinsDigitalOut( IOPORT_D, BIT_6); //Dir pin
+    PORTSetBits(IOPORT_D,BIT_6);
+    PORTSetPinsDigitalOut (IOPORT_D, BIT_2); //Enable pin
+    PORTClearBits (IOPORT_D, BIT_2); // Make sure no waveform is outputted to Enable pin
+    PORTSetPinsDigitalIn(IOPORT_D,BIT_10); //Input capture pin
+    //PORTSetPinsDigitalIn(IOPORT_C,BIT_2);//Akso input capture pin
+
+}
+
+void setupOC(void)
+{
+    PORTSetBits( IOPORT_D, BIT_8 ); //set h bridge dir
+    // The right most arguments of the OpenOC1 call represent the duty cycle of the output waveform
+    OpenOC2( OC_ON | OC_TIMER_MODE16 | OC_TIMER2_SRC | OC_IDLE_STOP | OC_PWM_FAULT_PIN_DISABLE, MAX_DUTY, MAX_DUTY );
+    OpenOC3( OC_ON | OC_TIMER_MODE16 | OC_TIMER2_SRC | OC_IDLE_STOP | OC_PWM_FAULT_PIN_DISABLE, MAX_DUTY, MAX_DUTY );
+}
+
+void setupInputCapture(void)
+{
+    OpenCapture2(IC_ON | IC_CAP_16BIT | IC_IDLE_STOP | IC_FEDGE_FALL | IC_TIMER3_SRC | IC_INT_1CAPTURE | IC_EVERY_EDGE);
+    ConfigIntCapture2(IC_INT_ON | IC_INT_PRIOR_3 | IC_INT_SUB_PRIOR_0);
+    OpenCapture3(IC_ON | IC_CAP_16BIT | IC_IDLE_STOP | IC_FEDGE_FALL | IC_TIMER3_SRC | IC_INT_1CAPTURE | IC_EVERY_EDGE);
+    ConfigIntCapture3(IC_INT_ON | IC_INT_PRIOR_3 | IC_INT_SUB_PRIOR_0);
+}
+
+void setupSwitch ( void )
+{
+    PORTSetPinsDigitalIn (IOPORT_D, BIT_3);
+    PORTSetPinsDigitalIn (IOPORT_D, BIT_1);
+
+}
+
+//output capture interrupt handler
+void __ISR(_INPUT_CAPTURE_2_VECTOR,ipl3) Capture2Handler(void)
+{
+    motor1ticks++;
+    //DBPRINTF("Motor1Ticks: %d",motor1ticks);
+    mIC2ClearIntFlag();
+}
+
+//output capture interrupt handler for the other wheel
+void __ISR(_INPUT_CAPTURE_3_VECTOR,ipl3) Capture3Handler(void)
+{
+    motor2ticks++;
+    //DBPRINTF("Motor1Ticks: %d",motor1ticks);
+    mIC3ClearIntFlag();
 
 }
 
