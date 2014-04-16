@@ -99,9 +99,13 @@ BOOL                Acknowledged;
 BOOL                Success = TRUE;
 UINT8               i2cbyte;
 
+//Globals for motor control
+static int motorState;
+
 //Globals for display
-int tempInDegreesF;
-int avgTemperatureInF;
+static int tempInDegreesF;
+static int avgTemperatureInF;
+static float feet_traveled;
 
 // Yes, don't forget your prototypes
 // Prototypes go here, or in a .h file, which you would also need to #include
@@ -178,7 +182,7 @@ void vTaskDisplay (void *pvParameters)
     while(1)
     {
 
-        sprintf(clsbuff,"%d,%X,%d",tempInDegreesF);
+        sprintf(clsbuff,"%d %d %d",motor1ticks, motor2ticks,tempInDegreesF);
         SpiChnPutS (1,(unsigned int *) home_cursor, 3);
         clsPrint(clsbuff);
 
@@ -188,33 +192,82 @@ void vTaskDisplay (void *pvParameters)
 
 void vTaskMotorControl (void *pvParameters)
 {
+    int state = 0;
     int switch_states;
+    int avg_ticks = 0;
+    motorState = 0;
     while(1)
     {
-        // Poll Buttons
-        switch_states = PORTRead(IOPORT_D);
-        switch_states &= 0b1010;
-        if(switch_states)
-            setupOC();
+        if(state == 0)
+        {
+            // Poll Buttons
+            switch_states = PORTRead(IOPORT_D);
+            switch_states &= 0b100000001000;
+            if(switch_states == 0b1000)
+            {
+                setupOC();
+                motorState = 1;
+                state = 1;
+            }
+            if(switch_states == 0b100000000000)
+            {
+                setupOC();
+                motorState = 1;
+                state = 2;
+            }
+        }
+        if(state == 1)
+        {
+            avg_ticks = (motor1ticks + motor2ticks) / 2;
+            feet_traveled = ((double)avg_ticks / 120.0) * .75;
+            if(feet_traveled > 10.0)
+            {
+                CloseOC2();
+                CloseOC3();
+                state = 0;
+            }
+        }
+        if(state == 2)
+        {
+            // Right Turn
+            if(motor1ticks > 120)
+            {
+                CloseOC3();
+                state = 3;
+            }
+        }
+        if(state == 3)
+        {
+            // drive 
+        }
+        vTaskDelay(250 / portTICK_RATE_MS);
     }
 }
 
 void vTaskAdjustSpeeds (void *pvParameters)
 {
-     double current_ratio;
-    //current_ratio = (double)OC2RS/(double)OC1RS;
-    if ((motor1ticks <= 30) || (motor2ticks <= 30))
-        return; //dodge divide by zero errors
-    //as well as problems when putting the robot down on the ground.
-    if (motor1ticks>motor2ticks)
+     float current_ratio = 0;
+
+    while(1)
     {
-        current_ratio = (double)motor2ticks / (double)motor1ticks;
-        OC2RS = current_ratio * MAX_DUTY - FUDGE_FACTOR;
-    }
-    else if (motor1ticks<motor2ticks)
-    {
-        current_ratio = (double)motor1ticks / (double)motor2ticks;
-        OC3RS = current_ratio * MAX_DUTY - FUDGE_FACTOR;
+        vTaskDelay(250 / portTICK_RATE_MS);
+        if(motorState != 1)
+            continue;
+
+        //current_ratio = (double)OC2RS/(double)OC1RS;
+        if ((motor1ticks <= 30) || (motor2ticks <= 30))
+            return; //dodge divide by zero errors
+        //as well as problems when putting the robot down on the ground.
+        if (motor1ticks>motor2ticks)
+        {
+            current_ratio = (double)motor2ticks / (double)motor1ticks;
+            OC2RS = current_ratio * MAX_DUTY - FUDGE_FACTOR;
+        }
+        else if (motor1ticks<motor2ticks)
+        {
+            current_ratio = (double)motor1ticks / (double)motor2ticks;
+            OC3RS = current_ratio * MAX_DUTY - FUDGE_FACTOR;
+        }
     }
 }
 
