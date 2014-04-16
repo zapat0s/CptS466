@@ -116,13 +116,14 @@ int accelZ;
 static void prvSetupHardware(void);
 void setupSPI_ports (void);
 //void setup_SPI1 (void);
+void setup_UART (void);
 void setup_SPI2 (void);
 
 void initialize_CLS (void);
-//void initialize_ACL (void);
+void initialize_ACL (void);
 
 void clsPrint(char* str);
-//void read_accelerometer (void);
+void read_accelerometer (void);
 
 void setupHB(void);
 void setupInputCapture(void);
@@ -189,7 +190,7 @@ void vTaskDisplay (void *pvParameters)
     {
         //read_accelerometer ();
         sprintf(clsbuff,"%d f,%d x,%d y,%d z",tempInDegreesF,accelX,accelY,accelZ);
-        SpiChnPutS (2, home_cursor, 3);
+        putsUART2(home_cursor);
         clsPrint(clsbuff);
 
         vTaskDelay (500 / portTICK_RATE_MS); // 0.5 s delay
@@ -198,12 +199,18 @@ void vTaskDisplay (void *pvParameters)
 
 void vTaskMotorControl (void *pvParameters)
 {
+    char clsbuff[64];
     int state = 0;
     int switch_states;
     int avg_ticks = 0;
+    int count = 0;
     motorState = 0;
+
     while(1)
     {
+        sprintf(clsbuff,"stuck in motor control %d",count++);
+        putsUART2(home_cursor);
+        clsPrint(clsbuff);
         if(state == 0)
         {
             // Poll Buttons
@@ -262,16 +269,21 @@ void vTaskMotorControl (void *pvParameters)
 void vTaskAdjustSpeeds (void *pvParameters)
 {
      float current_ratio = 0;
+    char clsbuff[64];
+    int count = 0;
 
     while(1)
     {
+
         vTaskDelay(250 / portTICK_RATE_MS);
+        sprintf(clsbuff,"stuck in adjust speeds %d",count++);
+
         if(motorState != 1)
             continue;
 
         //current_ratio = (double)OC2RS/(double)OC1RS;
         if ((motor1ticks <= 30) || (motor2ticks <= 30))
-            return; //dodge divide by zero errors
+            continue; //dodge divide by zero errors
         //as well as problems when putting the robot down on the ground.
         if (motor1ticks>motor2ticks)
         {
@@ -335,7 +347,7 @@ static void prvSetupHardware( void )
         // BTN1 ==> PA6
 	// BTN2 ==> PA7
 	PORTSetPinsDigitalIn(IOPORT_A, BIT_6| BIT_7);
-        setup_SPI1();
+        setup_UART();
         setup_SPI2();
         //initialize_ACL();
         initialize_CLS ();
@@ -452,13 +464,27 @@ void setupSPI_ports (void)
         PORTSetPinsDigitalIn (IOPORT_G, BIT_7);
 }
 //sets up the SPI for the CLS
-void setup_SPI1 (void)
+void setup_UART (void)
 {
-	SpiChnOpen (1, SPI_CON_MSTEN  | SPI_CON_MODE8 | SPI_CON_ON | CLK_POL_ACTIVE_LOW, 256);
+    int pb_clock;
+        // UART 2 port pins - connected to pmod CLS
+	/* JH-01 U2CTS/RF12 			RF12
+   	   JH-02 PMA8/U2TX/CN18/RF5 		RF5
+           JH-03 PMA9/U2RX/CN17/RF4 	        RF4
+	   JH-04 U2RTS/BCLK2/RF13 	        RF13 */
+        pb_clock = SYSTEMConfigPerformance (SYSTEM_CLOCK);
+	PORTSetPinsDigitalIn (IOPORT_F, BIT_4);
+	PORTSetPinsDigitalOut (IOPORT_F, BIT_5);
+
+        OpenUART2 (UART_EN | UART_IDLE_CON | UART_RX_TX | UART_DIS_WAKE | UART_DIS_LOOPBACK | UART_DIS_ABAUD | UART_NO_PAR_8BIT | UART_1STOPBIT | UART_IRDA_DIS |
+               UART_MODE_FLOWCTRL | UART_DIS_BCLK_CTS_RTS | UART_NORMAL_RX | UART_BRGH_SIXTEEN,
+               UART_TX_PIN_LOW | UART_RX_ENABLE | UART_TX_ENABLE | UART_INT_TX | UART_INT_RX_CHAR | UART_ADR_DETECT_DIS	| UART_RX_OVERRUN_CLEAR,
+			   mUARTBRG(pb_clock, DESIRED_BAUD_RATE));
+
 
 	// Create a falling edge pin SS to start communication
-	PORTSetBits (IOPORT_D, BIT_9);
-	PORTClearBits (IOPORT_D, BIT_9);
+	//PORTSetBits (IOPORT_D, BIT_9);
+	//PORTClearBits (IOPORT_D, BIT_9);
 }
 //sets up the SPI for the accellerometer
 void setup_SPI2 (void)
@@ -476,10 +502,10 @@ void setup_SPI2 (void)
 //initializes the CLS
 void initialize_CLS (void)
 {
-        SpiChnPutS (2, enable_display, 4);
-        SpiChnPutS (2, set_cursor, 4);
-        SpiChnPutS (2,  home_cursor, 3);
-        SpiChnPutS (2,  wrap_line, 4);
+        putsUART2 (enable_display);
+	putsUART2 (set_cursor);
+	putsUART2 (home_cursor);
+	putsUART2 (wrap_line);
 }
 
 //initializes the ACL
@@ -518,7 +544,8 @@ void read_accelerometer (void)
 //prints the designated string to the CLS via the SPI
 void clsPrint(char* str)
 {
-    SpiChnPutS (2, str, strlen(str) + 1);
+    putsUART2 (str);
+	
 }
 
 
