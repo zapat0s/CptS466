@@ -102,6 +102,9 @@ UINT8               i2cbyte;
 //Globals for display
 int tempInDegreesF;
 int avgTemperatureInF;
+int accelX;
+int accelY;
+int accelZ;
 
 // Yes, don't forget your prototypes
 // Prototypes go here, or in a .h file, which you would also need to #include
@@ -419,6 +422,31 @@ void initialize_ACL (void)
     SpiChnPutS(2,(unsigned int *)measurement_mode,2);
 
 }
+
+void read_accelerometer (void)
+{
+    char address;
+    UINT8 values[6];
+    int i;
+    //we have to set the most significant bit of the register to signal a read
+    address = 0x80 | 0x32;
+    //since we are doing a multi byte read we have to set bit 6 as well
+    address = address | 0x40;
+    SpiChnPutC(2,address);
+    for (int i = 0; i < 6;i++)
+    {
+        //SpiChnPutC(0x0); Not sure if we need this yet
+        values[i] = SpiChnReadC(2);
+    }
+
+    accelX = ((int)values[1]<<8) | (int)values[0];
+    accelY = ((int)values[3]<<8) | (int)values[2];
+    accelZ = ((int)values[5]<<8) | (int)values[4];
+    
+    
+    
+}
+
 
 //prints the designated string to the CLS via the SPI
 void clsPrint(char* str)
