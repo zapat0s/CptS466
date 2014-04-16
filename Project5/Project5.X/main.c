@@ -115,14 +115,14 @@ int accelZ;
 // Prototypes go here, or in a .h file, which you would also need to #include
 static void prvSetupHardware(void);
 void setupSPI_ports (void);
-void setup_SPI1 (void);
+//void setup_SPI1 (void);
 void setup_SPI2 (void);
 
 void initialize_CLS (void);
-void initialize_ACL (void);
+//void initialize_ACL (void);
 
 void clsPrint(char* str);
-void read_accelerometer (void);
+//void read_accelerometer (void);
 
 void setupHB(void);
 void setupInputCapture(void);
@@ -189,7 +189,7 @@ void vTaskDisplay (void *pvParameters)
     {
         //read_accelerometer ();
         sprintf(clsbuff,"%d f,%d x,%d y,%d z",tempInDegreesF,accelX,accelY,accelZ);
-        SpiChnPutS (1, home_cursor, 3);
+        SpiChnPutS (2, home_cursor, 3);
         clsPrint(clsbuff);
 
         vTaskDelay (500 / portTICK_RATE_MS); // 0.5 s delay
@@ -337,7 +337,7 @@ static void prvSetupHardware( void )
 	PORTSetPinsDigitalIn(IOPORT_A, BIT_6| BIT_7);
         setup_SPI1();
         setup_SPI2();
-        initialize_ACL();
+        //initialize_ACL();
         initialize_CLS ();
         setupI2C();
 
@@ -437,8 +437,8 @@ void setupSPI_ports (void)
 	   SCK1 - Ouput - RD10
 	   SS1  - Output - RD9 */
 
-	PORTSetPinsDigitalOut (IOPORT_D, BIT_0 | BIT_9 | BIT_10);
-	PORTSetPinsDigitalIn (IOPORT_C, BIT_4);
+	//PORTSetPinsDigitalOut (IOPORT_D, BIT_0 | BIT_9 | BIT_10);
+	//PORTSetPinsDigitalIn (IOPORT_C, BIT_4);
 
 
         //SPI2
@@ -476,10 +476,10 @@ void setup_SPI2 (void)
 //initializes the CLS
 void initialize_CLS (void)
 {
-        SpiChnPutS (1, enable_display, 4);
-        SpiChnPutS (1, set_cursor, 4);
-        SpiChnPutS (1,  home_cursor, 3);
-        SpiChnPutS (1,  wrap_line, 4);
+        SpiChnPutS (2, enable_display, 4);
+        SpiChnPutS (2, set_cursor, 4);
+        SpiChnPutS (2,  home_cursor, 3);
+        SpiChnPutS (2,  wrap_line, 4);
 }
 
 //initializes the ACL
@@ -518,7 +518,7 @@ void read_accelerometer (void)
 //prints the designated string to the CLS via the SPI
 void clsPrint(char* str)
 {
-    SpiChnPutS (1, str, strlen(str) + 1);
+    SpiChnPutS (2, str, strlen(str) + 1);
 }
 
 
