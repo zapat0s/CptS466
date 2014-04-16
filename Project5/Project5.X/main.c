@@ -190,7 +190,7 @@ void vTaskDisplay (void *pvParameters)
     {
         //read_accelerometer ();
         sprintf(clsbuff,"%d f,%d x,%d y,%d z",tempInDegreesF,accelX,accelY,accelZ);
-        putsUART2(2, home_cursor, 3);
+        putsUART2(home_cursor);
         clsPrint(clsbuff);
 
         vTaskDelay (500 / portTICK_RATE_MS); // 0.5 s delay
@@ -199,12 +199,18 @@ void vTaskDisplay (void *pvParameters)
 
 void vTaskMotorControl (void *pvParameters)
 {
+    char clsbuff[64];
     int state = 0;
     int switch_states;
     int avg_ticks = 0;
+    int count = 0;
     motorState = 0;
+
     while(1)
     {
+        sprintf(clsbuff,"stuck in motor control %d",count++);
+        putsUART2(home_cursor);
+        clsPrint(clsbuff);
         if(state == 0)
         {
             // Poll Buttons
@@ -255,16 +261,21 @@ void vTaskMotorControl (void *pvParameters)
 void vTaskAdjustSpeeds (void *pvParameters)
 {
      float current_ratio = 0;
+    char clsbuff[64];
+    int count = 0;
 
     while(1)
     {
+
         vTaskDelay(250 / portTICK_RATE_MS);
+        sprintf(clsbuff,"stuck in adjust speeds %d",count++);
+
         if(motorState != 1)
             continue;
 
         //current_ratio = (double)OC2RS/(double)OC1RS;
         if ((motor1ticks <= 30) || (motor2ticks <= 30))
-            return; //dodge divide by zero errors
+            continue; //dodge divide by zero errors
         //as well as problems when putting the robot down on the ground.
         if (motor1ticks>motor2ticks)
         {
@@ -447,13 +458,13 @@ void setupSPI_ports (void)
 //sets up the SPI for the CLS
 void setup_UART (void)
 {
-
+    int pb_clock;
         // UART 2 port pins - connected to pmod CLS
 	/* JH-01 U2CTS/RF12 			RF12
    	   JH-02 PMA8/U2TX/CN18/RF5 		RF5
            JH-03 PMA9/U2RX/CN17/RF4 	        RF4
 	   JH-04 U2RTS/BCLK2/RF13 	        RF13 */
-
+        pb_clock = SYSTEMConfigPerformance (SYSTEM_CLOCK);
 	PORTSetPinsDigitalIn (IOPORT_F, BIT_4);
 	PORTSetPinsDigitalOut (IOPORT_F, BIT_5);
 
