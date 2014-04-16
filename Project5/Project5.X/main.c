@@ -79,6 +79,16 @@ static char set_cursor[] = {27, '[', '1', 'c', '\0'};
 static char home_cursor[] = {27, '[', 'j', '\0'};
 static char wrap_line[] = {27, '[', '0', 'h', '\0'};
 
+//Globals for setting up the pmod ACL
+static char set_format[] = { 0x31,0x01}; //Sets the format to +/- 4Gs
+static char measurement_mode[] = {0x2D,0x08}; //Sets the accelerometer to measurement mode
+static char DATAX0 = 0x32;   //X-Axis Data 0
+static char DATAX1 = 0x33;   //X-Axis Data 1
+static char DATAY0 = 0x34;   //Y-Axis Data 0
+static char DATAY1 = 0x35;   //Y-Axis Data 1
+static char DATAZ0 = 0x36;   //Z-Axis Data 0
+static char DATAZ1 = 0x37;   //Z-Axis Data 1
+
 //Globals for I2C
 UINT8               i2cData[] = {'a', 27, '[', '3', 'e', '\0', 27, '[', '1', 'c', '\0', 27, '[', 'j', '\0', 'H', 'i', '\0'};
 I2C_7_BIT_ADDRESS   SlaveAddress;
@@ -405,7 +415,8 @@ void initialize_CLS (void)
 //initializes the ACL
 void initialize_ACL (void)
 {
-
+    SpiChnPutS(2,(unsigned int *)set_format,2);
+    SpiChnPutS(2,(unsigned int *)measurement_mode,2);
 
 }
 
