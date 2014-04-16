@@ -108,9 +108,9 @@ static float avgTemperatureInF;
 static float feet_traveled;
 static float total_traveled;
 static float avg_speed;
-int accelX;
-int accelY;
-int accelZ;
+static int accelX;
+static int accelY;
+static int accelZ;
 
 
 // Yes, don't forget your prototypes
@@ -190,7 +190,7 @@ void vTaskDisplay (void *pvParameters)
     char clsbuff[64];
     while(1)
     {
-        //read_accelerometer ();
+        read_accelerometer ();
         sprintf(clsbuff,"%4.2ff, %4.1fft, %d x,%d y,%d z", tempInDegreesF, total_traveled, accelX, accelY, accelZ);
         putsUART2(home_cursor);
         clsPrint(clsbuff);
@@ -382,7 +382,7 @@ static void prvSetupHardware( void )
 	PORTSetPinsDigitalIn(IOPORT_A, BIT_6| BIT_7);
         setup_UART();
         setup_SPI2();
-        //initialize_ACL();
+        initialize_ACL();
         initialize_CLS ();
         setupI2C();
 
@@ -524,7 +524,7 @@ void setup_SPI2 (void)
 {
         // void SpiChnOpen(int chn, SpiCtrlFlags config, unsigned int fpbDiv);
         // SpiChnOpen (1, SPI_OPEN_MSTEN | SPI_OPEN_SMP_END | SPI_OPEN_MODE8, 1024);
-        SpiChnOpen (2, SPI_CON_MSTEN  | SPI_CON_MODE8 | SPI_CON_ON | CLK_POL_ACTIVE_LOW, 256);
+        SpiChnOpen (2, SPI_CON_MSTEN  | SPI_CON_MODE16 | SPI_CON_ON | SPI_CON_SMP | SPI_CON_FRMEN, 16);
 
         // Create a falling edge pin SS to start communication
         PORTSetBits (IOPORT_G, BIT_9);
@@ -544,8 +544,18 @@ void initialize_CLS (void)
 //initializes the ACL
 void initialize_ACL (void)
 {
+    /*
+        static char set_format[] = { 0x31,0x01}; //Sets the format to +/- 4Gs
+        static char measurement_mode[] = {0x2D,0x08}; //Sets the accelerometer to measurement mode
+     */
+
+    PORTClearBits (IOPORT_G, BIT_9);
     SpiChnPutS(2,set_format,2);
+    PORTSetBits (IOPORT_G, BIT_9);
+
+    PORTClearBits (IOPORT_G, BIT_9);
     SpiChnPutS(2,measurement_mode,2);
+    PORTSetBits (IOPORT_G, BIT_9);
 
 }
 
@@ -555,15 +565,25 @@ void read_accelerometer (void)
     UINT8 values[6];
     int i;
     //we have to set the most significant bit of the register to signal a read
-    address = 0x80 | 0x32;
+    address = 0x80 | 0x32 | 0x40;
     //since we are doing a multi byte read we have to set bit 6 as well
-    address = address | 0x40;
+    //address = address | 0x40;
     SpiChnPutC(2,address);
-    for ( i = 0; i < 6;i++)
+    PORTClearBits (IOPORT_G, BIT_9);
+
+    for (i = 0;i<6;i++)
     {
-        //SpiChnPutC(0x0); Not sure if we need this yet
+
+        SpiChnPutC(2,0); //Not sure if we need this yet
+        
         values[i] = SpiChnReadC(2);
+
+
+
     }
+    
+    PORTSetBits (IOPORT_G, BIT_9);
+
 
     accelX = ((int)values[1]<<8) | (int)values[0];
     accelY = ((int)values[3]<<8) | (int)values[2];
