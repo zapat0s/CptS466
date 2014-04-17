@@ -1,0 +1,44 @@
+Alex Schuldberg and Josh Clark
+
+Accelerometer troubleshooting steps:
+
+First we attempted to use SPI1 for the CLS and SPI2 for the Accelerometer. We
+discovered that there was a collision between SPI1 and the motor control code,
+specifically the output compare interupts, and thus switched the CLS to SPI2 and
+started attempting to use the I2C for the Accelerometer.
+
+After pouring over the I2C documentation for some time and getting no where I
+had an epiphany that we could just use the UART for the CLS, freeing up SPI2 for
+the Accelerometer. We switched all of our code over and successfully got the CLS
+working again. However the Accelerometor reported 0xFE for all of the values of
+the data registers.
+
+I attempted using SpiChanGetC instead of SpiChanReadC but that ended up just
+causing it to hang forever instead of reporting the wrong values.
+
+I did some googling and found that we had to be setting the CS pin to low
+before a transfer and started doing that, but it changed nothing, weirdly
+enough.
+
+I tried adjusting the SPI setup code, timings, and configurations to multiple
+different specifications with no noticable results.
+
+I tried sending a byte to the accelerometer for each byte I was trying to
+recieve, it did not work, then I tried sending two bytes, still didnt work.
+
+I tried getting each register individually instead of doing a multi byte read,
+no luck.
+
+I tried setting the SPI device as a frame master but that didnt work.
+
+Finally I tried adding some delay to let the accelerometer detect the pin change
+on the CS pin but that just resulted in crashing RTOS so no luck.
+
+I did not try:
+More complicated methods of introducing delay
+Using the I2C interface for the accelerometer.
+
+Other than that I think I exhausted every possibility I could think of, please
+let me know if you can figure out what we did wrong.
+
+
