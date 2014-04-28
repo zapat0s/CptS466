@@ -1,0 +1,391 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configurationDescriptor version="62">
+  <logicalFolder name="root" displayName="root" projectFiles="true">
+    <logicalFolder name="HeaderFiles"
+                   displayName="Header Files"
+                   projectFiles="true">
+      <logicalFolder name="f1" displayName="FreeRTOS" projectFiles="true">
+        <logicalFolder name="f1" displayName="portable" projectFiles="true">
+          <logicalFolder name="f2" displayName="MPLAB" projectFiles="true">
+            <itemPath>FreeRTOS/portable/MPLAB/PIC32MX/ISR_Support.h</itemPath>
+            <itemPath>FreeRTOS/portable/MPLAB/PIC32MX/portmacro.h</itemPath>
+          </logicalFolder>
+        </logicalFolder>
+        <itemPath>FreeRTOS/include/croutine.h</itemPath>
+        <itemPath>FreeRTOS/include/FreeRTOS.h</itemPath>
+        <itemPath>FreeRTOS/include/list.h</itemPath>
+        <itemPath>FreeRTOS/include/mpu_wrappers.h</itemPath>
+        <itemPath>FreeRTOS/include/portable.h</itemPath>
+        <itemPath>FreeRTOS/include/projdefs.h</itemPath>
+        <itemPath>FreeRTOS/include/queue.h</itemPath>
+        <itemPath>FreeRTOS/include/semphr.h</itemPath>
+        <itemPath>FreeRTOS/include/StackMacros.h</itemPath>
+        <itemPath>FreeRTOS/include/task.h</itemPath>
+        <itemPath>FreeRTOS/include/timers.h</itemPath>
+      </logicalFolder>
+      <logicalFolder name="f2" displayName="includes" projectFiles="true">
+        <itemPath>includes/FreeRTOSConfig.h</itemPath>
+      </logicalFolder>
+      <logicalFolder name="f3" displayName="TCPIP Stack" projectFiles="true">
+        <itemPath>TCPIP Stack/includes/_HTTP2.h</itemPath>
+        <itemPath>TCPIP Stack/includes/AES.h</itemPath>
+        <itemPath>TCPIP Stack/includes/AES_CBC.h</itemPath>
+        <itemPath>TCPIP Stack/includes/AES_CFB.h</itemPath>
+        <itemPath>TCPIP Stack/includes/AES_CTR.h</itemPath>
+        <itemPath>TCPIP Stack/includes/AES_ECB.h</itemPath>
+        <itemPath>TCPIP Stack/includes/AES_ECB_PIC32.h</itemPath>
+        <itemPath>TCPIP Stack/includes/AES_OFB.h</itemPath>
+        <itemPath>TCPIP Stack/includes/aes_pic24f.h</itemPath>
+        <itemPath>TCPIP Stack/includes/Announce.h</itemPath>
+        <itemPath>TCPIP Stack/includes/ARCFOUR.h</itemPath>
+        <itemPath>TCPIP Stack/includes/ARP.h</itemPath>
+        <itemPath>TCPIP Stack/includes/AutoIP.h</itemPath>
+        <itemPath>TCPIP Stack/includes/BerkeleyAPI.h</itemPath>
+        <itemPath>TCPIP Stack/includes/BigInt.h</itemPath>
+        <itemPath>TCPIP Stack/includes/Compiler.h</itemPath>
+        <itemPath>TCPIP Stack/includes/Delay.h</itemPath>
+        <itemPath>TCPIP Stack/includes/DHCP.h</itemPath>
+        <itemPath>TCPIP Stack/includes/DNS.h</itemPath>
+        <itemPath>TCPIP Stack/includes/DynDNS.h</itemPath>
+        <itemPath>TCPIP Stack/includes/ENC28J60.h</itemPath>
+        <itemPath>TCPIP Stack/includes/ENCX24J600.h</itemPath>
+        <itemPath>TCPIP Stack/includes/ETH97J60.h</itemPath>
+        <itemPath>TCPIP Stack/includes/eth_pic32_ext_phy_rtl8201FL.h</itemPath>
+        <itemPath>TCPIP Stack/includes/ETHPIC32ExtPhy.h</itemPath>
+        <itemPath>TCPIP Stack/includes/ETHPIC32ExtPhyDP83640.h</itemPath>
+        <itemPath>TCPIP Stack/includes/ETHPIC32ExtPhyDP83848.h</itemPath>
+        <itemPath>TCPIP Stack/includes/ETHPIC32ExtPhyRegs.h</itemPath>
+        <itemPath>TCPIP Stack/includes/ETHPIC32ExtPhySMSC8700.h</itemPath>
+        <itemPath>TCPIP Stack/includes/ETHPIC32ExtPhySMSC8720.h</itemPath>
+        <itemPath>TCPIP Stack/includes/FileSystem.h</itemPath>
+        <itemPath>TCPIP Stack/includes/FTP.h</itemPath>
+        <itemPath>TCPIP Stack/includes/GenericTypeDefs.h</itemPath>
+        <itemPath>TCPIP Stack/includes/HardwareProfile.h</itemPath>
+        <itemPath>TCPIP Stack/includes/Hashes.h</itemPath>
+        <itemPath>TCPIP Stack/includes/Helpers.h</itemPath>
+        <itemPath>TCPIP Stack/includes/HTTP2.h</itemPath>
+        <itemPath>TCPIP Stack/includes/ICMP.h</itemPath>
+        <itemPath>TCPIP Stack/includes/IP.h</itemPath>
+        <itemPath>TCPIP Stack/includes/LCDBlocking.h</itemPath>
+        <itemPath>TCPIP Stack/includes/MAC.h</itemPath>
+        <itemPath>TCPIP Stack/includes/MPFS2.h</itemPath>
+        <itemPath>TCPIP Stack/includes/NBNS.h</itemPath>
+        <itemPath>TCPIP Stack/includes/Random.h</itemPath>
+        <itemPath>TCPIP Stack/includes/Reboot.h</itemPath>
+        <itemPath>TCPIP Stack/includes/regdef.h</itemPath>
+        <itemPath>TCPIP Stack/includes/RSA.h</itemPath>
+        <itemPath>TCPIP Stack/includes/SMTP.h</itemPath>
+        <itemPath>TCPIP Stack/includes/SNMP.h</itemPath>
+        <itemPath>TCPIP Stack/includes/SNMPv3.h</itemPath>
+        <itemPath>TCPIP Stack/includes/SNTP.h</itemPath>
+        <itemPath>TCPIP Stack/includes/SPIFlash.h</itemPath>
+        <itemPath>TCPIP Stack/includes/SPIRAM.h</itemPath>
+        <itemPath>TCPIP Stack/includes/SSL.h</itemPath>
+        <itemPath>TCPIP Stack/includes/SSLClientSize.h</itemPath>
+        <itemPath>TCPIP Stack/includes/StackTsk.h</itemPath>
+        <itemPath>TCPIP Stack/includes/TCP.h</itemPath>
+        <itemPath>TCPIP Stack/includes/TCPIP.h</itemPath>
+        <itemPath>TCPIP Stack/includes/TCPIPConfig.h</itemPath>
+        <itemPath>TCPIP Stack/includes/TCPPerformanceTest.h</itemPath>
+        <itemPath>TCPIP Stack/includes/Telnet.h</itemPath>
+        <itemPath>TCPIP Stack/includes/TFTPc.h</itemPath>
+        <itemPath>TCPIP Stack/includes/Tick.h</itemPath>
+        <itemPath>TCPIP Stack/includes/UART.h</itemPath>
+        <itemPath>TCPIP Stack/includes/UART2TCPBridge.h</itemPath>
+        <itemPath>TCPIP Stack/includes/UDP.h</itemPath>
+        <itemPath>TCPIP Stack/includes/UDPPerformanceTest.h</itemPath>
+        <itemPath>TCPIP Stack/includes/WF_Config.h</itemPath>
+        <itemPath>TCPIP Stack/includes/WF_pbkdf2.h</itemPath>
+        <itemPath>TCPIP Stack/includes/WFApi.h</itemPath>
+        <itemPath>TCPIP Stack/includes/WFConsole.h</itemPath>
+        <itemPath>TCPIP Stack/includes/WFConsoleIfconfig.h</itemPath>
+        <itemPath>TCPIP Stack/includes/WFConsoleIwconfig.h</itemPath>
+        <itemPath>TCPIP Stack/includes/WFConsoleIwpriv.h</itemPath>
+        <itemPath>TCPIP Stack/includes/WFConsoleMsgHandler.h</itemPath>
+        <itemPath>TCPIP Stack/includes/WFConsoleMsgs.h</itemPath>
+        <itemPath>TCPIP Stack/includes/WFDebugStrings.h</itemPath>
+        <itemPath>TCPIP Stack/includes/WFDriverPrv.h</itemPath>
+        <itemPath>TCPIP Stack/includes/WFDriverPrv_24G.h</itemPath>
+        <itemPath>TCPIP Stack/includes/WFEasyConfig.h</itemPath>
+        <itemPath>TCPIP Stack/includes/WFMac.h</itemPath>
+        <itemPath>TCPIP Stack/includes/WFMgmtMsg.h</itemPath>
+        <itemPath>TCPIP Stack/includes/WFRaw.h</itemPath>
+        <itemPath>TCPIP Stack/includes/WFRaw_24G.h</itemPath>
+        <itemPath>TCPIP Stack/includes/XEEPROM.h</itemPath>
+        <itemPath>TCPIP Stack/includes/ZeroconfHelper.h</itemPath>
+        <itemPath>TCPIP Stack/includes/ZeroconfLinkLocal.h</itemPath>
+        <itemPath>TCPIP Stack/includes/ZeroconfMulticastDNS.h</itemPath>
+      </logicalFolder>
+    </logicalFolder>
+    <logicalFolder name="LinkerScript"
+                   displayName="Linker Files"
+                   projectFiles="true">
+    </logicalFolder>
+    <logicalFolder name="SourceFiles"
+                   displayName="Source Files"
+                   projectFiles="true">
+      <logicalFolder name="f1" displayName="FreeRTOS" projectFiles="true">
+        <logicalFolder name="f1" displayName="MemMang" projectFiles="true">
+          <itemPath>FreeRTOS/portable/MemMang/heap_2.c</itemPath>
+        </logicalFolder>
+        <logicalFolder name="f2" displayName="MPLAB" projectFiles="true">
+          <itemPath>FreeRTOS/portable/MPLAB/PIC32MX/port.c</itemPath>
+          <itemPath>FreeRTOS/portable/MPLAB/PIC32MX/port_asm.S</itemPath>
+        </logicalFolder>
+        <itemPath>FreeRTOS/croutine.c</itemPath>
+        <itemPath>FreeRTOS/list.c</itemPath>
+        <itemPath>FreeRTOS/queue.c</itemPath>
+        <itemPath>FreeRTOS/tasks.c</itemPath>
+        <itemPath>FreeRTOS/timers.c</itemPath>
+      </logicalFolder>
+      <logicalFolder name="f2" displayName="TCPIP Stack" projectFiles="true">
+        <itemPath>TCPIP Stack/Announce.c</itemPath>
+        <itemPath>TCPIP Stack/ARCFOUR.c</itemPath>
+        <itemPath>TCPIP Stack/ARP.c</itemPath>
+        <itemPath>TCPIP Stack/AutoIP.c</itemPath>
+        <itemPath>TCPIP Stack/BerkeleyAPI.c</itemPath>
+        <itemPath>TCPIP Stack/BigInt.c</itemPath>
+        <itemPath>TCPIP Stack/Delay.c</itemPath>
+        <itemPath>TCPIP Stack/DHCP.c</itemPath>
+        <itemPath>TCPIP Stack/DHCPs.c</itemPath>
+        <itemPath>TCPIP Stack/DNS.c</itemPath>
+        <itemPath>TCPIP Stack/DNSs.c</itemPath>
+        <itemPath>TCPIP Stack/DynDNS.c</itemPath>
+        <itemPath>TCPIP Stack/ENC28J60.c</itemPath>
+        <itemPath>TCPIP Stack/ENCX24J600.c</itemPath>
+        <itemPath>TCPIP Stack/ETH97J60.c</itemPath>
+        <itemPath>TCPIP Stack/eth_pic32_ext_phy_rtl8201FL.c</itemPath>
+        <itemPath>TCPIP Stack/ETHPIC32ExtPhy.c</itemPath>
+        <itemPath>TCPIP Stack/ETHPIC32ExtPhyDP83640.c</itemPath>
+        <itemPath>TCPIP Stack/ETHPIC32ExtPhyDP83848.c</itemPath>
+        <itemPath>TCPIP Stack/ETHPIC32ExtPhySMSC8700.c</itemPath>
+        <itemPath>TCPIP Stack/ETHPIC32ExtPhySMSC8720.c</itemPath>
+        <itemPath>TCPIP Stack/ETHPIC32IntMac.c</itemPath>
+        <itemPath>TCPIP Stack/FileSystem.c</itemPath>
+        <itemPath>TCPIP Stack/FTP.c</itemPath>
+        <itemPath>TCPIP Stack/Hashes.c</itemPath>
+        <itemPath>TCPIP Stack/Helpers.c</itemPath>
+        <itemPath>TCPIP Stack/HTTP2.c</itemPath>
+        <itemPath>TCPIP Stack/ICMP.c</itemPath>
+        <itemPath>TCPIP Stack/IP.c</itemPath>
+        <itemPath>TCPIP Stack/LCDBlocking.c</itemPath>
+        <itemPath>TCPIP Stack/MPFS2.c</itemPath>
+        <itemPath>TCPIP Stack/NBNS.c</itemPath>
+        <itemPath>TCPIP Stack/Random.c</itemPath>
+        <itemPath>TCPIP Stack/Reboot.c</itemPath>
+        <itemPath>TCPIP Stack/RSA.c</itemPath>
+        <itemPath>TCPIP Stack/SMTP.c</itemPath>
+        <itemPath>TCPIP Stack/SNMP.c</itemPath>
+        <itemPath>TCPIP Stack/SNMPv3.c</itemPath>
+        <itemPath>TCPIP Stack/SNMPv3USM.c</itemPath>
+        <itemPath>TCPIP Stack/SNTP.c</itemPath>
+        <itemPath>TCPIP Stack/SPIEEPROM.c</itemPath>
+        <itemPath>TCPIP Stack/SPIFlash.c</itemPath>
+        <itemPath>TCPIP Stack/SPIRAM.c</itemPath>
+        <itemPath>TCPIP Stack/SSL.c</itemPath>
+        <itemPath>TCPIP Stack/StackTsk.c</itemPath>
+        <itemPath>TCPIP Stack/TCP.c</itemPath>
+        <itemPath>TCPIP Stack/TCPPerformanceTest.c</itemPath>
+        <itemPath>TCPIP Stack/Telnet.c</itemPath>
+        <itemPath>TCPIP Stack/TFTPc.c</itemPath>
+        <itemPath>TCPIP Stack/Tick.c</itemPath>
+        <itemPath>TCPIP Stack/UART.c</itemPath>
+        <itemPath>TCPIP Stack/UART2TCPBridge.c</itemPath>
+        <itemPath>TCPIP Stack/UDP.c</itemPath>
+        <itemPath>TCPIP Stack/UDPPerformanceTest.c</itemPath>
+        <itemPath>TCPIP Stack/ZeroconfHelper.c</itemPath>
+        <itemPath>TCPIP Stack/ZeroconfLinkLocal.c</itemPath>
+        <itemPath>TCPIP Stack/ZeroconfMulticastDNS.c</itemPath>
+      </logicalFolder>
+      <logicalFolder name="f3" displayName="WiFi" projectFiles="true">
+        <itemPath>TCPIP Stack/WiFi/WF_Eint.c</itemPath>
+        <itemPath>TCPIP Stack/WiFi/WF_pbkdf2.c</itemPath>
+        <itemPath>TCPIP Stack/WiFi/WF_Spi.c</itemPath>
+        <itemPath>TCPIP Stack/WiFi/WFConnectionAlgorithm.c</itemPath>
+        <itemPath>TCPIP Stack/WiFi/WFConnectionManager.c</itemPath>
+        <itemPath>TCPIP Stack/WiFi/WFConnectionProfile.c</itemPath>
+        <itemPath>TCPIP Stack/WiFi/WFConsole.c</itemPath>
+        <itemPath>TCPIP Stack/WiFi/WFConsoleIfconfig.c</itemPath>
+        <itemPath>TCPIP Stack/WiFi/WFConsoleIwconfig.c</itemPath>
+        <itemPath>TCPIP Stack/WiFi/WFConsoleIwpriv.c</itemPath>
+        <itemPath>TCPIP Stack/WiFi/WFConsoleMsgHandler.c</itemPath>
+        <itemPath>TCPIP Stack/WiFi/WFConsoleMsgs.c</itemPath>
+        <itemPath>TCPIP Stack/WiFi/WFDataTxRx.c</itemPath>
+        <itemPath>TCPIP Stack/WiFi/WFDebugStrings.c</itemPath>
+        <itemPath>TCPIP Stack/WiFi/WFDriverCom.c</itemPath>
+        <itemPath>TCPIP Stack/WiFi/WFDriverRaw.c</itemPath>
+        <itemPath>TCPIP Stack/WiFi/WFEasyConfig.c</itemPath>
+        <itemPath>TCPIP Stack/WiFi/WFEventHandler.c</itemPath>
+        <itemPath>TCPIP Stack/WiFi/WFInit.c</itemPath>
+        <itemPath>TCPIP Stack/WiFi/WFMac.c</itemPath>
+        <itemPath>TCPIP Stack/WiFi/WFMgmtMsg.c</itemPath>
+        <itemPath>TCPIP Stack/WiFi/WFParamMsg.c</itemPath>
+        <itemPath>TCPIP Stack/WiFi/WFPowerSave.c</itemPath>
+        <itemPath>TCPIP Stack/WiFi/WFScan.c</itemPath>
+        <itemPath>TCPIP Stack/WiFi/WFTxPower.c</itemPath>
+      </logicalFolder>
+      <itemPath>main.c</itemPath>
+      <itemPath>INT3_ISR.S</itemPath>
+      <itemPath>T5_ISR.S</itemPath>
+    </logicalFolder>
+    <logicalFolder name="ExternalFiles"
+                   displayName="Important Files"
+                   projectFiles="false">
+      <itemPath>Makefile</itemPath>
+    </logicalFolder>
+  </logicalFolder>
+  <projectmakefile>Makefile</projectmakefile>
+  <confs>
+    <conf name="default" type="2">
+      <toolsSet>
+        <developmentServer>localhost</developmentServer>
+        <targetDevice>PIC32MX460F512L</targetDevice>
+        <targetHeader></targetHeader>
+        <targetPluginBoard></targetPluginBoard>
+        <platformTool>PK3OBPlatformTool</platformTool>
+        <languageToolchain>XC32</languageToolchain>
+        <languageToolchainVersion>1.31</languageToolchainVersion>
+        <platform>3</platform>
+      </toolsSet>
+      <compileType>
+        <linkerTool>
+          <linkerLibItems>
+          </linkerLibItems>
+        </linkerTool>
+        <loading>
+          <useAlternateLoadableFile>false</useAlternateLoadableFile>
+          <alternateLoadableFile></alternateLoadableFile>
+        </loading>
+      </compileType>
+      <makeCustomizationType>
+        <makeCustomizationPreStepEnabled>false</makeCustomizationPreStepEnabled>
+        <makeCustomizationPreStep></makeCustomizationPreStep>
+        <makeCustomizationPostStepEnabled>false</makeCustomizationPostStepEnabled>
+        <makeCustomizationPostStep></makeCustomizationPostStep>
+        <makeCustomizationPutChecksumInUserID>false</makeCustomizationPutChecksumInUserID>
+        <makeCustomizationEnableLongLines>false</makeCustomizationEnableLongLines>
+        <makeCustomizationNormalizeHexFile>false</makeCustomizationNormalizeHexFile>
+      </makeCustomizationType>
+      <C32>
+        <property key="additional-warnings" value="false"/>
+        <property key="enable-app-io" value="false"/>
+        <property key="enable-omit-frame-pointer" value="false"/>
+        <property key="enable-symbols" value="true"/>
+        <property key="enable-unroll-loops" value="false"/>
+        <property key="exclude-floating-point" value="false"/>
+        <property key="extra-include-directories" value=""/>
+        <property key="generate-16-bit-code" value="false"/>
+        <property key="generate-micro-compressed-code" value="false"/>
+        <property key="isolate-each-function" value="false"/>
+        <property key="make-warnings-into-errors" value="false"/>
+        <property key="optimization-level" value=""/>
+        <property key="place-data-into-section" value="false"/>
+        <property key="post-instruction-scheduling" value="default"/>
+        <property key="pre-instruction-scheduling" value="default"/>
+        <property key="preprocessor-macros" value=""/>
+        <property key="strict-ansi" value="false"/>
+        <property key="support-ansi" value="false"/>
+        <property key="use-cci" value="false"/>
+        <property key="use-iar" value="false"/>
+        <property key="use-indirect-calls" value="false"/>
+      </C32>
+      <C32-AS>
+        <property key="assembler-symbols" value=""/>
+        <property key="enable-symbols" value="true"/>
+        <property key="exclude-floating-point-library" value="false"/>
+        <property key="expand-macros" value="false"/>
+        <property key="extra-include-directories-for-assembler" value=""/>
+        <property key="extra-include-directories-for-preprocessor" value=""/>
+        <property key="false-conditionals" value="false"/>
+        <property key="keep-locals" value="false"/>
+        <property key="list-assembly" value="false"/>
+        <property key="list-source" value="false"/>
+        <property key="list-symbols" value="false"/>
+        <property key="oXC32asm-list-to-file" value="false"/>
+        <property key="omit-debug-dirs" value="false"/>
+        <property key="omit-forms" value="false"/>
+        <property key="preprocessor-macros" value=""/>
+        <property key="warning-level" value=""/>
+      </C32-AS>
+      <C32-LD>
+        <property key="additional-options-use-response-files" value="false"/>
+        <property key="enable-check-sections" value="false"/>
+        <property key="exclude-floating-point-library" value="false"/>
+        <property key="exclude-standard-libraries" value="false"/>
+        <property key="extra-lib-directories" value=""/>
+        <property key="generate-16-bit-code" value="false"/>
+        <property key="generate-cross-reference-file" value="false"/>
+        <property key="generate-micro-compressed-code" value="false"/>
+        <property key="heap-size" value=""/>
+        <property key="input-libraries" value=""/>
+        <property key="linker-symbols" value=""/>
+        <property key="map-file" value="${DISTDIR}/${PROJECTNAME}.${IMAGE_TYPE}.map"/>
+        <property key="no-startup-files" value="false"/>
+        <property key="oXC32ld-extra-opts" value=""/>
+        <property key="optimization-level" value=""/>
+        <property key="preprocessor-macros" value=""/>
+        <property key="remove-unused-sections" value="false"/>
+        <property key="report-memory-usage" value="false"/>
+        <property key="stack-size" value=""/>
+        <property key="symbol-stripping" value=""/>
+        <property key="trace-symbols" value=""/>
+        <property key="warn-section-align" value="false"/>
+      </C32-LD>
+      <C32CPP>
+        <property key="additional-warnings" value="false"/>
+        <property key="check-new" value="false"/>
+        <property key="eh-specs" value="true"/>
+        <property key="enable-app-io" value="false"/>
+        <property key="enable-omit-frame-pointer" value="false"/>
+        <property key="enable-symbols" value="true"/>
+        <property key="enable-unroll-loops" value="false"/>
+        <property key="exceptions" value="true"/>
+        <property key="exclude-floating-point" value="false"/>
+        <property key="extra-include-directories" value=""/>
+        <property key="generate-16-bit-code" value="false"/>
+        <property key="generate-micro-compressed-code" value="false"/>
+        <property key="isolate-each-function" value="false"/>
+        <property key="make-warnings-into-errors" value="false"/>
+        <property key="optimization-level" value=""/>
+        <property key="place-data-into-section" value="false"/>
+        <property key="post-instruction-scheduling" value="default"/>
+        <property key="pre-instruction-scheduling" value="default"/>
+        <property key="preprocessor-macros" value=""/>
+        <property key="rtti" value="true"/>
+        <property key="strict-ansi" value="false"/>
+        <property key="use-cci" value="false"/>
+        <property key="use-iar" value="false"/>
+        <property key="use-indirect-calls" value="false"/>
+      </C32CPP>
+      <C32Global>
+        <property key="legacy-libc" value="false"/>
+        <property key="save-temps" value="false"/>
+        <property key="wpo-lto" value="false"/>
+      </C32Global>
+      <PK3OBPlatformTool>
+        <property key="AutoSelectMemRanges" value="auto"/>
+        <property key="SecureSegment.SegmentProgramming" value="FullChipProgramming"/>
+        <property key="ToolFirmwareFilePath"
+                  value="Press to browse for a specific firmware version"/>
+        <property key="ToolFirmwareOption.UseLatestFirmware" value="true"/>
+        <property key="firmware.download.all" value="false"/>
+        <property key="memories.bootflash" value="true"/>
+        <property key="memories.configurationmemory" value="true"/>
+        <property key="memories.eeprom" value="true"/>
+        <property key="memories.id" value="true"/>
+        <property key="memories.programmemory" value="true"/>
+        <property key="memories.programmemory.end" value="0x1d07ffff"/>
+        <property key="memories.programmemory.start" value="0x1d000000"/>
+        <property key="poweroptions.powerenable" value="false"/>
+        <property key="programoptions.eraseb4program" value="true"/>
+        <property key="programoptions.preserveeeprom" value="false"/>
+        <property key="programoptions.preserveprogramrange" value="false"/>
+        <property key="programoptions.preserveprogramrange.end" value="0x1d0001ff"/>
+        <property key="programoptions.preserveprogramrange.start" value="0x1d000000"/>
+        <property key="programoptions.usehighvoltageonmclr" value="false"/>
+        <property key="programoptions.uselvpprogramming" value="false"/>
+        <property key="voltagevalue" value="3.25"/>
+      </PK3OBPlatformTool>
+    </conf>
+  </confs>
+</configurationDescriptor>
