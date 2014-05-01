@@ -68,10 +68,7 @@
 #define TMP2_ADDRESS            0x4B
 
 // Globals
-static int motor1ticks;
-static int motor2ticks;
-
-static xSemaphoreHandle motorControlSem = NULL;
+static int motor_ticks = 0;
 
 // Globals for setting up pmod CLS
 static char enable_display[] = {27, '[', '3', 'e', '\0'};
@@ -79,80 +76,31 @@ static char set_cursor[] = {27, '[', '1', 'c', '\0'};
 static char home_cursor[] = {27, '[', 'j', '\0'};
 static char wrap_line[] = {27, '[', '0', 'h', '\0'};
 
-//Globals for setting up the pmod ACL
-static char set_format[] = { 0x31,0x01}; //Sets the format to +/- 4Gs
-static char measurement_mode[] = {0x2D,0x08}; //Sets the accelerometer to measurement mode
-static char DATAX0 = 0x32;   //X-Axis Data 0
-static char DATAX1 = 0x33;   //X-Axis Data 1
-static char DATAY0 = 0x34;   //Y-Axis Data 0
-static char DATAY1 = 0x35;   //Y-Axis Data 1
-static char DATAZ0 = 0x36;   //Z-Axis Data 0
-static char DATAZ1 = 0x37;   //Z-Axis Data 1
-
-//Globals for I2C
-UINT8               i2cData[] = {'a', 27, '[', '3', 'e', '\0', 27, '[', '1', 'c', '\0', 27, '[', 'j', '\0', 'H', 'i', '\0'};
-I2C_7_BIT_ADDRESS   SlaveAddress;
-int                 Index;
-int                 DataSz;
-UINT32              actualClock;
-BOOL                Acknowledged;
-BOOL                Success = TRUE;
-UINT8               i2cbyte;
-
-//Globals for motor control
-static int motorState;
-
-//Globals for display
-static float tempInDegreesF;
-static float avgTemperatureInF;
-static float feet_traveled;
-static float total_traveled;
-static float avg_speed;
-static int accelX;
-static int accelY;
-static int accelZ;
-
-
-// Yes, don't forget your prototypes
-// Prototypes go here, or in a .h file, which you would also need to #include
 static void prvSetupHardware(void);
-void setupSPI_ports (void);
-//void setup_SPI1 (void);
-void setup_UART (void);
-void setup_SPI2 (void);
 
-void initialize_CLS (void);
-void initialize_ACL (void);
+void setupSPI_ports(void);
+void setup_SPI2(void);
 
+void setup_UART(void);
+
+void initialize_CLS(void);
 void clsPrint(char* str);
-void read_accelerometer (void);
 
 void setupHB(void);
 void setupInputCapture(void);
 void setupOC(void);
+
 void setupSwitch(void);
 
-//I2C
-void setupI2C(void);
-BOOL TransmitOneByte( UINT8 data );
-BOOL StartTransfer( BOOL restart );
-void StopTransfer( void );
-double getTemp(void);
-
 // Tasks
-void vTaskDisplay (void *pvParameters);
-
-void vTaskMotorControl (void *pvParameters);
-void vTaskAdjustSpeeds (void *pvParameters);
-void vTaskCount (void *pvParameters);
-void vTaskTemperature(void *pvParameters);
-
+void vTaskDisplay(void *pvParameters);
+void vTaskMotorControl(void *pvParameters);
+void vTaskBluetooth(void *pvParameters);
 
 int main (void)
 {
 	// Variable declarations
 
-        vSemaphoreCreateBinary (motorControlSem);
 	// Setup/initialize ports
         setupSPI_ports();
         setupSwitch();
@@ -171,9 +119,7 @@ int main (void)
                      tskIDLE_PRIORITY + 1, NULL);
         xTaskCreate (vTaskMotorControl, "Motor Control", configMINIMAL_STACK_SIZE, NULL,
                     tskIDLE_PRIORITY + 3, NULL);
-        xTaskCreate (vTaskAdjustSpeeds, "Adjust Speeds", configMINIMAL_STACK_SIZE, NULL,
-                     tskIDLE_PRIORITY + 1, NULL);
-        xTaskCreate (vTaskTemperature, "Temperature", configMINIMAL_STACK_SIZE, NULL,
+        xTaskCreate (vTaskBluetooth, "Bluetooth", configMINIMAL_STACK_SIZE, NULL,
                      tskIDLE_PRIORITY + 1, NULL);
         vTaskStartScheduler ();
 
@@ -185,169 +131,63 @@ int main (void)
 
 	return 0;
 }
+/*************************************************************
+ * Task: vTaskDisplay                                        *
+ * Date Created: 4/30/2014                                   *
+ * Date Last Modified: 4/30/2014                             *
+ * Description:                                              *
+ * Input parameters: none                                    *
+ * Usages:                                                   *
+ * Preconditions: SPI2 and CLS must be setup.                *
+ *************************************************************/
 void vTaskDisplay (void *pvParameters)
 {
     char clsbuff[64];
     while(1)
     {
-        read_accelerometer ();
-        sprintf(clsbuff,"T %4.1ff A %4.1ff Dist %4.1fft", tempInDegreesF, avgTemperatureInF, total_traveled);
-        putsUART2(home_cursor);
+        
+        //sprintf(clsbuff,"T %4.1ff A %4.1ff Dist %4.1fft", tempInDegreesF, avgTemperatureInF, total_traveled);
+        
         clsPrint(clsbuff);
 
-        vTaskDelay (500 / portTICK_RATE_MS); // 0.5 s delay
+        vTaskDelay(500 / portTICK_RATE_MS); // 0.5 s delay
     }
 }
 
+/*************************************************************
+ * Task: vTaskMotorControl                                   *
+ * Date Created: 4/30/2014                                   *
+ * Date Last Modified: 4/30/2014                             *
+ * Description:                                              *
+ * Input parameters: none                                    *
+ * Usages:                                                   *
+ * Preconditions: HB5 and Output Compare must be setup.      *
+ *************************************************************/
 void vTaskMotorControl (void *pvParameters)
 {
-    int state = 0;
-    int switch_states;
-    int avg_ticks = 0;
-    motorState = 0;
-
-    while(1)
-    {
-        if(state == 0)
-        {
-            // Poll Buttons
-            switch_states = PORTRead(IOPORT_D);
-            switch_states &= 0b100000001000;
-            if(switch_states == 0b1000)
-            {
-                setupOC();
-                motorState = 1;
-                state = 1;
-            }
-            if(switch_states == 0b100000000000)
-            {
-                setupOC();
-                motorState = 1;
-                state = 4;
-            }
-            motor1ticks = 0;
-            motor2ticks = 0;
-        }
-        if(state == 1) // Drive 10ft
-        {
-            avg_ticks = (motor1ticks + motor2ticks) / 2;
-            feet_traveled = ((double)avg_ticks / 120.0) * 0.75;
-            if(feet_traveled > 10.0)
-            {
-                CloseOC2();
-                CloseOC3();
-                motorState = 0;
-                vTaskDelay(1000 / portTICK_RATE_MS);
-                setupOC();
-                motorState = 1;
-                motor1ticks = 0;
-                motor2ticks = 0;
-                total_traveled += feet_traveled;
-                state = 2;
-            }
-        }
-        if(state == 2) // Drive 15ft
-        {
-            avg_ticks = (motor1ticks + motor2ticks) / 2;
-            feet_traveled = ((double)avg_ticks / 120.0) * 0.75;
-            if(feet_traveled > 15.0)
-            {
-                CloseOC2();
-                CloseOC3();
-                motorState = 0;
-                total_traveled += feet_traveled;
-                state = 0;
-            }
-        }
-        if(state == 4) // Drive 5ft
-        {
-            avg_ticks = (motor1ticks + motor2ticks) / 2;
-            feet_traveled = ((double)avg_ticks / 120.0) * 0.75;
-            if(feet_traveled > 5.0)
-            {
-                setupOC();
-                CloseOC2();
-                motorState = 0;
-                motor1ticks = 0;
-                motor2ticks = 0;
-                total_traveled += feet_traveled;
-                state = 5;
-            }
-        }
-        if(state == 5) // Turn Right
-        {
-            if(motor2ticks > 120)
-            {
-                setupOC();
-                motorState = 6;
-                motor1ticks = 0;
-                motor2ticks = 0;
-                state = 6;
-            }
-        }
-        if(state == 6) // Drive 5ft
-        {
-            avg_ticks = (motor1ticks + motor2ticks) / 2;
-            feet_traveled = ((double)avg_ticks / 120.0) * 0.75;
-            if(feet_traveled > 5.0)
-            {
-                CloseOC2();
-                CloseOC3();
-                motorState = 0;
-                total_traveled += feet_traveled;
-                state = 0;
-            }
-        }
+    while (1){
+        
         vTaskDelay(250 / portTICK_RATE_MS);
     }
 }
 
-void vTaskAdjustSpeeds (void *pvParameters)
+/*************************************************************
+ * Task: vTaskBluetooth                                      *
+ * Date Created: 4/30/2014                                   *
+ * Date Last Modified: 4/30/2014                             *
+ * Description:                                              *
+ * Input parameters: none                                    *
+ * Usages:                                                   *
+ * Preconditions: Bluetooth must be setup.                   *
+ *************************************************************/
+void vTaskBluetooth(void *pvParameters)
 {
-    float current_ratio = 0;
-
-    while(1)
-    {
+    while (1){
 
         vTaskDelay(250 / portTICK_RATE_MS);
-
-        if(motorState != 1)
-            continue;
-
-        //current_ratio = (double)OC2RS/(double)OC1RS;
-        if ((motor1ticks <= 30) || (motor2ticks <= 30))
-            continue; //dodge divide by zero errors
-        //as well as problems when putting the robot down on the ground.
-        if (motor1ticks>motor2ticks)
-        {
-            current_ratio = (double)motor2ticks / (double)motor1ticks;
-            OC2RS = current_ratio * MAX_DUTY - FUDGE_FACTOR;
-        }
-        else if (motor1ticks<motor2ticks)
-        {
-            current_ratio = (double)motor1ticks / (double)motor2ticks;
-            OC3RS = current_ratio * MAX_DUTY - FUDGE_FACTOR;
-        }
     }
 }
 
-//Temperature testing task
-void vTaskTemperature(void * pvParameters)
-{
-    int samples = 0;
-    double temperature;
-    while(1)
-    {
-        samples++;
-        temperature = getTemp();
-            //convert to ferengtheight
-        temperature = ((double)temperature * 1.8 )+32;
-        tempInDegreesF = temperature;
-        avgTemperatureInF = (avgTemperatureInF * (samples - 1) + temperature)/samples;
-
-        vTaskDelay (1000/portTICK_RATE_MS);
-    }
-}
 /*************************************************************
  * Function:                                                 *
  * Date Created:                                             *
@@ -496,30 +336,7 @@ void setupSPI_ports (void)
         PORTSetPinsDigitalOut (IOPORT_G, BIT_6 | BIT_8 | BIT_9);
         PORTSetPinsDigitalIn (IOPORT_G, BIT_7);
 }
-//sets up the SPI for the CLS
-void setup_UART (void)
-{
-    int pb_clock;
-        // UART 2 port pins - connected to pmod CLS
-	/* JH-01 U2CTS/RF12 			RF12
-   	   JH-02 PMA8/U2TX/CN18/RF5 		RF5
-           JH-03 PMA9/U2RX/CN17/RF4 	        RF4
-	   JH-04 U2RTS/BCLK2/RF13 	        RF13 */
-        pb_clock = SYSTEMConfigPerformance (SYSTEM_CLOCK);
-	PORTSetPinsDigitalIn (IOPORT_F, BIT_4);
-	PORTSetPinsDigitalOut (IOPORT_F, BIT_5);
 
-        OpenUART2 (UART_EN | UART_IDLE_CON | UART_RX_TX | UART_DIS_WAKE | UART_DIS_LOOPBACK | UART_DIS_ABAUD | UART_NO_PAR_8BIT | UART_1STOPBIT | UART_IRDA_DIS |
-               UART_MODE_FLOWCTRL | UART_DIS_BCLK_CTS_RTS | UART_NORMAL_RX | UART_BRGH_SIXTEEN,
-               UART_TX_PIN_LOW | UART_RX_ENABLE | UART_TX_ENABLE | UART_INT_TX | UART_INT_RX_CHAR | UART_ADR_DETECT_DIS	| UART_RX_OVERRUN_CLEAR,
-			   mUARTBRG(pb_clock, DESIRED_BAUD_RATE));
-
-
-	// Create a falling edge pin SS to start communication
-	//PORTSetBits (IOPORT_D, BIT_9);
-	//PORTClearBits (IOPORT_D, BIT_9);
-}
-//sets up the SPI for the accellerometer
 void setup_SPI2 (void)
 {
         // void SpiChnOpen(int chn, SpiCtrlFlags config, unsigned int fpbDiv);
@@ -540,59 +357,6 @@ void initialize_CLS (void)
 	putsUART2 (home_cursor);
 	putsUART2 (wrap_line);
 }
-
-//initializes the ACL
-void initialize_ACL (void)
-{
-    /*
-        static char set_format[] = { 0x31,0x01}; //Sets the format to +/- 4Gs
-        static char measurement_mode[] = {0x2D,0x08}; //Sets the accelerometer to measurement mode
-     */
-
-    PORTClearBits (IOPORT_G, BIT_9);
-    SpiChnPutS(2,set_format,2);
-    PORTSetBits (IOPORT_G, BIT_9);
-
-    PORTClearBits (IOPORT_G, BIT_9);
-    SpiChnPutS(2,measurement_mode,2);
-    PORTSetBits (IOPORT_G, BIT_9);
-
-}
-
-void read_accelerometer (void)
-{
-    char address;
-    UINT8 values[6];
-    int i;
-    //we have to set the most significant bit of the register to signal a read
-    address = 0x80 | 0x32 | 0x40;
-    //since we are doing a multi byte read we have to set bit 6 as well
-    //address = address | 0x40;
-    SpiChnPutC(2,address);
-    PORTClearBits (IOPORT_G, BIT_9);
-
-    for (i = 0;i<6;i++)
-    {
-
-        SpiChnPutC(2,0); //Not sure if we need this yet
-        
-        values[i] = SpiChnReadC(2);
-
-
-
-    }
-    
-    PORTSetBits (IOPORT_G, BIT_9);
-
-
-    accelX = ((int)values[1]<<8) | (int)values[0];
-    accelY = ((int)values[3]<<8) | (int)values[2];
-    accelZ = ((int)values[5]<<8) | (int)values[4];
-    
-    
-    
-}
-
 
 //prints the designated string to the CLS via the SPI
 void clsPrint(char* str)
@@ -648,7 +412,6 @@ void setupSwitch ( void )
 void __ISR(_INPUT_CAPTURE_2_VECTOR,ipl3) Capture2Handler(void)
 {
     motor1ticks++;
-    //DBPRINTF("Motor1Ticks: %d",motor1ticks);
     mIC2ClearIntFlag();
 }
 
@@ -656,282 +419,6 @@ void __ISR(_INPUT_CAPTURE_2_VECTOR,ipl3) Capture2Handler(void)
 void __ISR(_INPUT_CAPTURE_3_VECTOR,ipl3) Capture3Handler(void)
 {
     motor2ticks++;
-    //DBPRINTF("Motor1Ticks: %d",motor1ticks);
     mIC3ClearIntFlag();
 
-}
-
-//sets up the I2C
-void setupI2C(void)
-{
-    //UINT32 actualClock;
-    PORTSetPinsDigitalOut (IOPORT_A, BIT_2);
-    PORTSetPinsDigitalIn(IOPORT_A, BIT_3);
-    actualClock = I2CSetFrequency(I2C2, GetPeripheralClock(), I2C_CLOCK_FREQ);
-    if ( abs(actualClock-I2C_CLOCK_FREQ) > I2C_CLOCK_FREQ/10 )
-    {
-        DBPRINTF("Error: I2C1 clock frequency (%u) error exceeds 10%%.\n", (unsigned)actualClock);
-    }
-    I2CEnable(I2C2, TRUE);
-
-}
-
-//gets the temperature from the temp sensor
-double getTemp(void)
-{
-    INT16 temp;
-    //
-    // Read the data back from the Temp Sensor.
-    //
-
-    // Initialize the data buffer
-    I2C_FORMAT_7_BIT_ADDRESS(SlaveAddress, TMP2_ADDRESS, I2C_WRITE);
-    i2cData[0] = SlaveAddress.byte;
-    DataSz = 1;
-
-    // Start the transfer to read the Temp Sensor.
-    if( !StartTransfer(FALSE) )
-    {
-        while(1);
-    }
-
-    // Address the Temp Sensor.
-    Index = 0;
-    while( Success & (Index < DataSz) )
-    {
-        // Transmit a byte
-        if (TransmitOneByte(i2cData[Index]))
-        {
-            // Advance to the next byte
-            Index++;
-        }
-        else
-        {
-            Success = FALSE;
-        }
-
-        // Verify that the byte was acknowledged
-        if(!I2CByteWasAcknowledged(I2C2))
-        {
-            DBPRINTF("Error: Sent byte was not acknowledged\n");
-            Success = FALSE;
-        }
-    }
-
-    // Restart and send the Temp Sensor's internal address to switch to a read transfer
-    if(Success)
-    {
-        // Send a Repeated Started condition
-        if( !StartTransfer(TRUE) )
-        {
-            while(1);
-        }
-
-        // Transmit the address with the READ bit set
-        I2C_FORMAT_7_BIT_ADDRESS(SlaveAddress, TMP2_ADDRESS, I2C_READ);
-        if (TransmitOneByte(SlaveAddress.byte))
-        {
-            // Verify that the byte was acknowledged
-            if(!I2CByteWasAcknowledged(I2C2))
-            {
-                DBPRINTF("Error: Sent byte was not acknowledged\n");
-                Success = FALSE;
-            }
-        }
-        else
-        {
-            Success = FALSE;
-        }
-    }
-
-    // Read the data from the desired address
-    if(Success)
-    {
-        if(I2CReceiverEnable(I2C2, TRUE) == I2C_RECEIVE_OVERFLOW)
-        {
-            DBPRINTF("Error: I2C Receive Overflow\n");
-            Success = FALSE;
-        }
-        else
-        {
-            while(!I2CReceivedDataIsAvailable(I2C2));
-            i2cbyte = I2CGetByte(I2C2);
-            temp = i2cbyte << 8;
-            //while(!I2CReceivedDataIsAvailable(I2C2));
-            i2cbyte = I2CGetByte(I2C2);
-            temp |= i2cbyte;
-            temp = temp >> 3;
-            temp = (float)temp * 0.0625;
-        }
-
-    }
-
-    // End the transfer (stop here if an error occured)
-    StopTransfer();
-    if(!Success)
-    {
-        while(1);
-    }
-
-    return temp;
-
-}
-
-
-/*******************************************************************************
-  Function:
-    BOOL TransmitOneByte( UINT8 data )
-
-  Summary:
-    This transmits one byte to the Temp Sensor.
-
-  Description:
-    This transmits one byte to the Temp Sensor, and reports errors for any bus
-    collisions.
-
-  Precondition:
-    The transfer must have been previously started.
-
-  Parameters:
-    data    - Data byte to transmit
-
-  Returns:
-    TRUE    - Data was sent successfully
-    FALSE   - A bus collision occured
-
-  Example:
-    <code>
-    TransmitOneByte(0xAA);
-    </code>
-
-  Remarks:
-    This is a blocking routine that waits for the transmission to complete.
-  *****************************************************************************/
-
-BOOL TransmitOneByte( UINT8 data )
-{
-    // Wait for the transmitter to be ready
-    while(!I2CTransmitterIsReady(I2C2));
-
-    // Transmit the byte
-    if(I2CSendByte(I2C2, data) == I2C_MASTER_BUS_COLLISION)
-    {
-        DBPRINTF("Error: I2C Master Bus Collision\n");
-        return FALSE;
-    }
-
-    // Wait for the transmission to finish
-    while(!I2CTransmissionHasCompleted(I2C2));
-
-    return TRUE;
-}
-
-
-/*******************************************************************************
-  Function:
-    BOOL StartTransfer( BOOL restart )
-
-  Summary:
-    Starts (or restarts) a transfer to/from the Temp Sensor.
-
-  Description:
-    This routine starts (or restarts) a transfer to/from the Temp Sensor, waiting (in
-    a blocking loop) until the start (or re-start) condition has completed.
-
-  Precondition:
-    The I2C module must have been initialized.
-
-  Parameters:
-    restart - If FALSE, send a "Start" condition
-            - If TRUE, send a "Restart" condition
-
-  Returns:
-    TRUE    - If successful
-    FALSE   - If a collision occured during Start signaling
-
-  Example:
-    <code>
-    StartTransfer(FALSE);
-    </code>
-
-  Remarks:
-    This is a blocking routine that waits for the bus to be idle and the Start
-    (or Restart) signal to complete.
-  *****************************************************************************/
-
-BOOL StartTransfer( BOOL restart )
-{
-    I2C_STATUS  status;
-
-    // Send the Start (or Restart) signal
-    if(restart)
-    {
-        I2CRepeatStart(I2C2);
-    }
-    else
-    {
-        // Wait for the bus to be idle, then start the transfer
-        while( !I2CBusIsIdle(I2C2) );
-
-        if(I2CStart(I2C2) != I2C_SUCCESS)
-        {
-            DBPRINTF("Error: Bus collision during transfer Start\n");
-            return FALSE;
-        }
-    }
-
-    // Wait for the signal to complete
-    do
-    {
-        status = I2CGetStatus(I2C2);
-
-    } while ( !(status & I2C_START) );
-
-    return TRUE;
-}
-
-
-
-/*******************************************************************************
-  Function:
-    void StopTransfer( void )
-
-  Summary:
-    Stops a transfer to/from the Temp Sensor.
-
-  Description:
-    This routine Stops a transfer to/from the Temp Sensor, waiting (in a
-    blocking loop) until the Stop condition has completed.
-
-  Precondition:
-    The I2C module must have been initialized & a transfer started.
-
-  Parameters:
-    None.
-
-  Returns:
-    None.
-
-  Example:
-    <code>
-    StopTransfer();
-    </code>
-
-  Remarks:
-    This is a blocking routine that waits for the Stop signal to complete.
-  *****************************************************************************/
-
-void StopTransfer( void )
-{
-    I2C_STATUS  status;
-
-    // Send the Stop signal
-    I2CStop(I2C2);
-
-    // Wait for the signal to complete
-    do
-    {
-        status = I2CGetStatus(I2C2);
-
-    } while ( !(status & I2C_STOP) );
 }
