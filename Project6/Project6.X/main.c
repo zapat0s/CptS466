@@ -49,6 +49,9 @@
 #define SYSTEM_CLOCK		80000000
 #define DESIRED_BAUD_RATE	9600
 
+#define UART_BAUD_BT            115200
+#define UART_BITS_BT            8
+
 #define MAX_DUTY                0x7FFF
 
 #define GetSystemClock()            (SYS_CLOCK)
@@ -467,6 +470,8 @@ void runMotorBackward()
     PORTSetBits(IOPORT_D,BIT_7); //set h bridge dir
     OpenOC2( OC_ON | OC_TIMER_MODE16 | OC_TIMER2_SRC | OC_IDLE_STOP | OC_PWM_FAULT_PIN_DISABLE, MAX_DUTY, MAX_DUTY );
 }
+
+
 
 /*************************************************************
  * Function: setupInputCapture                               *
