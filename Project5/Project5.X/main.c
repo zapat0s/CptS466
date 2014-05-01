@@ -191,7 +191,7 @@ void vTaskDisplay (void *pvParameters)
     while(1)
     {
         read_accelerometer ();
-        sprintf(clsbuff,"%4.2ff, %4.1fft, %d x,%d y,%d z", tempInDegreesF, total_traveled, accelX, accelY, accelZ);
+        sprintf(clsbuff,"T %4.1ff A %4.1ff Dist %4.1fft", tempInDegreesF, avgTemperatureInF, total_traveled);
         putsUART2(home_cursor);
         clsPrint(clsbuff);
 
