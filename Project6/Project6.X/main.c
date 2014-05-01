@@ -71,7 +71,7 @@
 #define MOTOR_START  1
 
 // Globals
-static int disp_motor_ticks = 0;
+static int motor_ticks = 0;
 
 // Semephores
 SemaphoreHandle_t display_sem; // Protects globals prefixed with disp
@@ -97,9 +97,14 @@ void clsPrint(char* str);
 
 void setupHB(void);
 void setupInputCapture(void);
-void setupOC(void);
 
 void setupSwitch(void);
+
+//motor helpers
+void runMotorForward();
+void stopMotors();
+void runMotorBackward();
+
 
 // Tasks
 void vTaskDisplay(void *pvParameters);
@@ -174,7 +179,32 @@ void vTaskDisplay(void *pvParameters) {
  * Preconditions: HB5 and Output Compare must be setup.      *
  *************************************************************/
 void vTaskMotorControl(void *pvParameters) {
+    int LINELENGTH=400;
+    int state = 0;
     while (1){
+
+        //pull the door handle down
+        if(state==0)
+        {
+            stopMotors();
+            runMotorForward();
+            state = 1;
+        }
+        //delay for 5 seconds
+        if ((motor_ticks > LINELENGTH) && (state == 1))
+        {
+            state = 2;
+            stopMotors();
+            motor_ticks = 0;
+            vTaskDelay(5000/portTICK_RATE_MS);
+            //push the door handle back up
+            runMotorBackward();
+        }
+        if ((motor_ticks > LINELENGTH) && (state == 2))
+        {
+            stopMotors();
+            state = 3;
+        }
         
         vTaskDelay(250 / portTICK_RATE_MS);
     }
@@ -419,13 +449,6 @@ void clsPrint(char* str) {
  * Postconditions: Pmod HB5 is setup to power motor.         *
  *************************************************************/
 void setupHB( void ) {
-    PORTSetPinsDigitalOut( IOPORT_D, BIT_7 ); //Dir pin
-    PORTClearBits(IOPORT_D,BIT_7);
-    PORTSetPinsDigitalOut( IOPORT_D, BIT_1 ); //Enable pin
-    PORTClearBits (IOPORT_D, BIT_1); // Make sure no waveform is outputted to Enable pin
-    PORTSetPinsDigitalIn(IOPORT_D,BIT_9); //Input capture pin
-    //PORTSetPinsDigitalIn(IOPORT_C,BIT_1);//Akso input capture pin (why do we need 2?)
-
     PORTSetPinsDigitalOut( IOPORT_D, BIT_6); //Dir pin
     PORTSetBits(IOPORT_D,BIT_6);
     PORTSetPinsDigitalOut (IOPORT_D, BIT_2); //Enable pin
@@ -448,8 +471,24 @@ void setupHB( void ) {
 void setupOC(void) {
     PORTSetBits( IOPORT_D, BIT_8 ); //set h bridge dir
     // The right most arguments of the OpenOC1 call represent the duty cycle of the output waveform
+}
+
+//start the motor running forward
+void runMotorForward() {
+    PORTClearBits(IOPORT_D,BIT_7); //set h bridge dir
     OpenOC2( OC_ON | OC_TIMER_MODE16 | OC_TIMER2_SRC | OC_IDLE_STOP | OC_PWM_FAULT_PIN_DISABLE, MAX_DUTY, MAX_DUTY );
-    OpenOC3( OC_ON | OC_TIMER_MODE16 | OC_TIMER2_SRC | OC_IDLE_STOP | OC_PWM_FAULT_PIN_DISABLE, MAX_DUTY, MAX_DUTY );
+}
+
+//stop motor
+void stopMotors() {
+    CloseOC2();
+}
+
+//start the motor running backwards
+void runMotorBackward()
+{
+    PORTSetBits(IOPORT_D,BIT_7); //set h bridge dir
+    OpenOC2( OC_ON | OC_TIMER_MODE16 | OC_TIMER2_SRC | OC_IDLE_STOP | OC_PWM_FAULT_PIN_DISABLE, MAX_DUTY, MAX_DUTY );
 }
 
 /*************************************************************
@@ -465,8 +504,7 @@ void setupOC(void) {
 void setupInputCapture(void) {
     OpenCapture2(IC_ON | IC_CAP_16BIT | IC_IDLE_STOP | IC_FEDGE_FALL | IC_TIMER3_SRC | IC_INT_1CAPTURE | IC_EVERY_EDGE);
     ConfigIntCapture2(IC_INT_ON | IC_INT_PRIOR_3 | IC_INT_SUB_PRIOR_0);
-    OpenCapture3(IC_ON | IC_CAP_16BIT | IC_IDLE_STOP | IC_FEDGE_FALL | IC_TIMER3_SRC | IC_INT_1CAPTURE | IC_EVERY_EDGE);
-    ConfigIntCapture3(IC_INT_ON | IC_INT_PRIOR_3 | IC_INT_SUB_PRIOR_0);
+    
 }
 
 /*************************************************************
@@ -484,14 +522,9 @@ void setupSwitch ( void ) {
     PORTSetPinsDigitalIn (IOPORT_D, BIT_1);
 }
 
-//input capture interrupt handler
-void __ISR(_INPUT_CAPTURE_2_VECTOR,ipl3) Capture2Handler(void) {
-    disp_motor_ticks++;
+//output capture interrupt handler
+void __ISR(_INPUT_CAPTURE_2_VECTOR,ipl3) Capture2Handler(void)
+{
+    motor_ticks++;
     mIC2ClearIntFlag();
-}
-
-//input capture interrupt handler for the other wheel
-void __ISR(_INPUT_CAPTURE_3_VECTOR,ipl3) Capture3Handler(void) {
-    //motor2ticks++;
-    mIC3ClearIntFlag();
 }
