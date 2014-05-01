@@ -44,40 +44,25 @@
 
 // Place your #define constants and macros here, or in another .h file
 
-#define MAX_DUTY        0x5FFF
-#define FUDGE_FACTOR    0x500
-
-// States of program
-#define INIT 0
-#define COUNT 1
-#define STOP 2
-
 //FUNTIME CONSTANTS
 #define SYS_CLOCK		80000000
 #define SYSTEM_CLOCK		80000000
 #define DESIRED_BAUD_RATE	9600
 
-#define MAX_DUTY                0x5FFF
-#define FUDGE_FACTOR            0x500
+#define MAX_DUTY                0x7FFF
 
 #define GetSystemClock()            (SYS_CLOCK)
 #define GetPeripheralClock()        (SYS_CLOCK) // FPBDIV = DIV_1
 #define GetInstructionClock()       (SYS_CLOCK)
-#define I2C_CLOCK_FREQ              100000
-
-#define TMP2_ADDRESS            0x4B
-
-// For motor control
-#define MOTOR_START  1
 
 // Globals
 static int motor_ticks = 0;
 
 // Semephores
-SemaphoreHandle_t display_sem; // Protects globals prefixed with disp
+SemaphoreHandle_t motor_control_sem;
 
 // Queues
-QueueHandle_t motor_control_queue;
+//QueueHandle_t motor_control_queue;
 
 // Globals for setting up pmod CLS
 static char enable_display[] = {27, '[', '3', 'e', '\0'};
@@ -120,16 +105,8 @@ int main (void)
     prvSetupHardware ();
 
     // Setup Queues and Semephores
-    display_sem = xSemaphoreCreateBinary();
-    if( display_sem == NULL ) {
-        /* There was insufficient OpenRTOS heap available for the semaphore to
-        be created successfully. */
-    }
-    
-    motor_control_queue = xQueueCreate(10, sizeof( unsigned int ));
-    if( motor_control_queue == 0 ) {
-        // Queue was not created and must not be used.
-    }
+    motor_control_sem = xSemaphoreCreateBinary();
+    //motor_control_queue = xQueueCreate(10, sizeof( unsigned int ));
 
     // Can you draw the execution pattern diagram for these tasks?
     xTaskCreate (vTaskDisplay, "Update Display", configMINIMAL_STACK_SIZE, NULL,
@@ -163,8 +140,9 @@ void vTaskDisplay(void *pvParameters) {
             //sprintf(clsbuff,"T %4.1ff A %4.1ff Dist %4.1fft", tempInDegreesF, avgTemperatureInF, total_traveled);
         //}
         //xSemaphoreGive(display_sem);
-        sprintf(clsbuff, "HelloWorld!");
+        sprintf(clsbuff, "%d", motor_ticks);
         clsPrint(clsbuff);
+        SpiChnPutS(2, home_cursor, 3);
         vTaskDelay(500 / portTICK_RATE_MS); // 0.5 s delay
     }
 }
@@ -179,33 +157,34 @@ void vTaskDisplay(void *pvParameters) {
  * Preconditions: HB5 and Output Compare must be setup.      *
  *************************************************************/
 void vTaskMotorControl(void *pvParameters) {
-    int LINELENGTH=400;
+    int LINELENGTH=1600;
     int state = 0;
     while (1){
-
+        if (state == 0) {
+            if( xSemaphoreTake( motor_control_sem, ( TickType_t ) 10 ) == pdTRUE ) {
+                state = 1;
+                motor_ticks = 0;
+            }
+        }
         //pull the door handle down
-        if(state==0)
-        {
+        if (state == 1) {
             stopMotors();
             runMotorForward();
-            state = 1;
+            state = 2;
         }
         //delay for 5 seconds
-        if ((motor_ticks > LINELENGTH) && (state == 1))
-        {
-            state = 2;
+        if ((motor_ticks > LINELENGTH) && (state == 2)) {
+            state = 3;
             stopMotors();
             motor_ticks = 0;
             vTaskDelay(5000/portTICK_RATE_MS);
             //push the door handle back up
             runMotorBackward();
         }
-        if ((motor_ticks > LINELENGTH) && (state == 2))
-        {
+        if ((motor_ticks > LINELENGTH) && (state == 3)) {
             stopMotors();
-            state = 3;
+            state = 0;
         }
-        
         vTaskDelay(250 / portTICK_RATE_MS);
     }
 }
@@ -226,11 +205,9 @@ void vTaskBluetooth(void *pvParameters) {
         switch_states = PORTRead(IOPORT_D);
         switch_states &= 0b100000001000;
         if (switch_states == 0b1000) {
-            xQueueSend(MOTOR_START, ( void * ) &ulVar, ( TickType_t ) 10);
+            xSemaphoreGive( motor_control_sem );
         }
         if (switch_states == 0b100000000000) {
-            setupOC();
-
         }
         vTaskDelay(250 / portTICK_RATE_MS);
     }
