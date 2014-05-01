@@ -67,8 +67,17 @@
 
 #define TMP2_ADDRESS            0x4B
 
+// For motor control
+#define MOTOR_START  1
+
 // Globals
-static int motor_ticks = 0;
+static int disp_motor_ticks = 0;
+
+// Semephores
+SemaphoreHandle_t display_sem; // Protects globals prefixed with disp
+
+// Queues
+QueueHandle_t motor_control_queue;
 
 // Globals for setting up pmod CLS
 static char enable_display[] = {27, '[', '3', 'e', '\0'};
@@ -99,35 +108,37 @@ void vTaskBluetooth(void *pvParameters);
 
 int main (void)
 {
-	// Variable declarations
-
-	// Setup/initialize ports
-        setupSPI_ports();
-        setupSwitch();
-
-        OpenTimer2( T2_ON | T2_PS_1_1, 0x7FFF ); // The right argument determines the period of the output waveform
-        setupHB();
-        setupInputCapture();
-        
-	// Setup/initialize devices
-
-        prvSetupHardware ();
+    // Variable declarations
 
 
-        // Can you draw the execution pattern diagram for these tasks?
-        xTaskCreate (vTaskDisplay, "Update Display", configMINIMAL_STACK_SIZE, NULL,
-                     tskIDLE_PRIORITY + 1, NULL);
-        xTaskCreate (vTaskMotorControl, "Motor Control", configMINIMAL_STACK_SIZE, NULL,
-                    tskIDLE_PRIORITY + 3, NULL);
-        xTaskCreate (vTaskBluetooth, "Bluetooth", configMINIMAL_STACK_SIZE, NULL,
-                     tskIDLE_PRIORITY + 1, NULL);
-        vTaskStartScheduler ();
+    // Setup/initialize devices
+    prvSetupHardware ();
 
-        // Should not reach this point!
-	while (1) // Embedded programs run forever
-	{
-		// Event loop
-	}
+    // Setup Queues and Semephores
+    display_sem = xSemaphoreCreateBinary();
+    if( display_sem == NULL ) {
+        /* There was insufficient OpenRTOS heap available for the semaphore to
+        be created successfully. */
+    }
+    
+    motor_control_queue = xQueueCreate(10, sizeof( unsigned int ));
+    if( motor_control_queue == 0 ) {
+        // Queue was not created and must not be used.
+    }
+
+    // Can you draw the execution pattern diagram for these tasks?
+    xTaskCreate (vTaskDisplay, "Update Display", configMINIMAL_STACK_SIZE, NULL,
+                 tskIDLE_PRIORITY + 1, NULL);
+    xTaskCreate (vTaskMotorControl, "Motor Control", configMINIMAL_STACK_SIZE, NULL,
+                 tskIDLE_PRIORITY + 3, NULL);
+    xTaskCreate (vTaskBluetooth, "Bluetooth", configMINIMAL_STACK_SIZE, NULL,
+                 tskIDLE_PRIORITY + 1, NULL);
+    vTaskStartScheduler ();
+
+    // Should not reach this point!
+    while (1) { // Embedded programs run forever
+        // Event loop
+    }
 
 	return 0;
 }
@@ -140,16 +151,15 @@ int main (void)
  * Usages:                                                   *
  * Preconditions: SPI2 and CLS must be setup.                *
  *************************************************************/
-void vTaskDisplay (void *pvParameters)
-{
+void vTaskDisplay(void *pvParameters) {
     char clsbuff[64];
-    while(1)
-    {
-        
-        //sprintf(clsbuff,"T %4.1ff A %4.1ff Dist %4.1fft", tempInDegreesF, avgTemperatureInF, total_traveled);
-        
+    while (1) {
+        //if ( xSemaphoreTake( display_sem, LONG_TIME ) == pdTRUE ) {
+            //sprintf(clsbuff,"T %4.1ff A %4.1ff Dist %4.1fft", tempInDegreesF, avgTemperatureInF, total_traveled);
+        //}
+        //xSemaphoreGive(display_sem);
+        sprintf(clsbuff, "HelloWorld!");
         clsPrint(clsbuff);
-
         vTaskDelay(500 / portTICK_RATE_MS); // 0.5 s delay
     }
 }
@@ -163,8 +173,7 @@ void vTaskDisplay (void *pvParameters)
  * Usages:                                                   *
  * Preconditions: HB5 and Output Compare must be setup.      *
  *************************************************************/
-void vTaskMotorControl (void *pvParameters)
-{
+void vTaskMotorControl(void *pvParameters) {
     while (1){
         
         vTaskDelay(250 / portTICK_RATE_MS);
@@ -180,10 +189,19 @@ void vTaskMotorControl (void *pvParameters)
  * Usages:                                                   *
  * Preconditions: Bluetooth must be setup.                   *
  *************************************************************/
-void vTaskBluetooth(void *pvParameters)
-{
+void vTaskBluetooth(void *pvParameters) {
+    int switch_states;
+    unsigned long ulVar = 10UL;
     while (1){
+        switch_states = PORTRead(IOPORT_D);
+        switch_states &= 0b100000001000;
+        if (switch_states == 0b1000) {
+            xQueueSend(MOTOR_START, ( void * ) &ulVar, ( TickType_t ) 10);
+        }
+        if (switch_states == 0b100000000000) {
+            setupOC();
 
+        }
         vTaskDelay(250 / portTICK_RATE_MS);
     }
 }
@@ -207,8 +225,7 @@ void vTaskBluetooth(void *pvParameters)
 
 /*-----------------------------------------------------------*/
 
-static void prvSetupHardware( void )
-{
+static void prvSetupHardware( void ) {
 	/* Configure the hardware for maximum performance. */
 	vHardwareConfigurePerformance();
 
@@ -217,20 +234,18 @@ static void prvSetupHardware( void )
 
 	portDISABLE_INTERRUPTS();
 
-        // BTN1 ==> PA6
-	// BTN2 ==> PA7
-	PORTSetPinsDigitalIn(IOPORT_A, BIT_6| BIT_7);
-        setup_UART();
+        //setup_UART();
+        setupSPI_ports();
         setup_SPI2();
-        initialize_ACL();
         initialize_CLS ();
-        setupI2C();
-
+        OpenTimer2( T2_ON | T2_PS_1_1, 0x7FFF ); // The right argument determines the period of the output waveform
+        setupHB();
+        setupInputCapture();
+        setupSwitch();
 }
 /*-----------------------------------------------------------*/
 
-void vApplicationMallocFailedHook( void )
-{
+void vApplicationMallocFailedHook( void ) {
 	/* vApplicationMallocFailedHook() will only be called if
 	configUSE_MALLOC_FAILED_HOOK is set to 1 in FreeRTOSConfig.h.  It is a hook
 	function that will get called if a call to pvPortMalloc() fails.
@@ -246,8 +261,7 @@ void vApplicationMallocFailedHook( void )
 }
 /*-----------------------------------------------------------*/
 
-void vApplicationIdleHook( void )
-{
+void vApplicationIdleHook( void ) {
 	/* vApplicationIdleHook() will only be called if configUSE_IDLE_HOOK is set
 	to 1 in FreeRTOSConfig.h.  It will be called on each iteration of the idle
 	task.  It is essential that code added to this hook function never attempts
@@ -260,8 +274,7 @@ void vApplicationIdleHook( void )
 }
 /*-----------------------------------------------------------*/
 
-void vApplicationStackOverflowHook( TaskHandle_t pxTask, char *pcTaskName )
-{
+void vApplicationStackOverflowHook( TaskHandle_t pxTask, char *pcTaskName ) {
 	( void ) pcTaskName;
 	( void ) pxTask;
 
@@ -274,8 +287,7 @@ void vApplicationStackOverflowHook( TaskHandle_t pxTask, char *pcTaskName )
 }
 /*-----------------------------------------------------------*/
 
-void vApplicationTickHook( void )
-{
+void vApplicationTickHook( void ) {
 	/* This function will be called by each tick interrupt if
 	configUSE_TICK_HOOK is set to 1 in FreeRTOSConfig.h.  User code can be
 	added here, but the tick hook is called from an interrupt context, so
@@ -284,16 +296,14 @@ void vApplicationTickHook( void )
 }
 /*-----------------------------------------------------------*/
 
-void _general_exception_handler( unsigned long ulCause, unsigned long ulStatus )
-{
+void _general_exception_handler( unsigned long ulCause, unsigned long ulStatus ) {
 	/* This overrides the definition provided by the kernel.  Other exceptions
 	should be handled here. */
 	for( ;; );
 }
 /*-----------------------------------------------------------*/
 
-void vAssertCalled( const char * pcFile, unsigned long ulLine )
-{
+void vAssertCalled( const char * pcFile, unsigned long ulLine ) {
 volatile unsigned long ul = 0;
 
 	( void ) pcFile;
@@ -305,16 +315,24 @@ volatile unsigned long ul = 0;
 		function. */
 		while( ul == 0 )
 		{
-			portNOP();
+                    portNOP();
 		}
 	}
 	__asm volatile( "ei" );
 }
 
-
-//sets up the ports for the SPI
-void setupSPI_ports (void)
-{
+/*************************************************************
+ * Function: setupSPI_ports                                  *
+ * Date Created: 4/30/2014                                   *
+ * Date Last Modified: 4/30/2014                             *
+ * Description: sets up the ports for the SPI                *
+ * Input parameters: none                                    *
+ * Returns: void                                             *
+ * Preconditions: none                                       *
+ * Postconditions: Ports open for SPI2.                      *
+ *************************************************************/
+//
+void setupSPI_ports (void) {
         //SPI1
         // Master Mode
 	/* SDO1 - Output - RD0
@@ -324,8 +342,7 @@ void setupSPI_ports (void)
 
 	//PORTSetPinsDigitalOut (IOPORT_D, BIT_0 | BIT_9 | BIT_10);
 	//PORTSetPinsDigitalIn (IOPORT_C, BIT_4);
-
-
+    
         //SPI2
         // Master Mode
         /* SDO1 - Output - RD6
@@ -337,37 +354,71 @@ void setupSPI_ports (void)
         PORTSetPinsDigitalIn (IOPORT_G, BIT_7);
 }
 
-void setup_SPI2 (void)
-{
+/*************************************************************
+ * Function: setup_SPI2                                      *
+ * Date Created: 4/30/2014                                   *
+ * Date Last Modified: 4/30/2014                             *
+ * Description: sets up SPI 2 for pmodCLS                    *
+ * Input parameters: none                                    *
+ * Returns: void                                             *
+ * Preconditions: Ports open for SPI2.                       *
+ * Postconditions: SPI2 is setup for pmodCLS                 *
+ *************************************************************/
+void setup_SPI2 (void) {
         // void SpiChnOpen(int chn, SpiCtrlFlags config, unsigned int fpbDiv);
         // SpiChnOpen (1, SPI_OPEN_MSTEN | SPI_OPEN_SMP_END | SPI_OPEN_MODE8, 1024);
-        SpiChnOpen (2, SPI_CON_MSTEN  | SPI_CON_MODE16 | SPI_CON_ON | SPI_CON_SMP | SPI_CON_FRMEN, 16);
+        SpiChnOpen(2, SPI_CON_MSTEN  | SPI_CON_MODE8 | SPI_CON_ON | CLK_POL_ACTIVE_LOW, 256);
 
         // Create a falling edge pin SS to start communication
-        PORTSetBits (IOPORT_G, BIT_9);
-        //delay (1000);
-        PORTClearBits (IOPORT_G, BIT_9);
+        PORTSetBits(IOPORT_G, BIT_9);
+        PORTClearBits(IOPORT_G, BIT_9);
 }
 
+/*************************************************************
+ * Function: initialize_CLS                                  *
+ * Date Created: 4/30/2014                                   *
+ * Date Last Modified: 4/30/2014                             *
+ * Description: Enables, and initializes pmodCLS             *
+ * Input parameters: none                                    *
+ * Returns: void                                             *
+ * Preconditions: SPI2 is setup for pmodCLS                  *
+ * Postconditions: PmodCl is setup for display.              *
+ *************************************************************/
 //initializes the CLS
-void initialize_CLS (void)
-{
-        putsUART2 (enable_display);
-	putsUART2 (set_cursor);
-	putsUART2 (home_cursor);
-	putsUART2 (wrap_line);
+void initialize_CLS(void) {
+    SpiChnPutS(2, enable_display, 4);
+    SpiChnPutS(2, set_cursor, 4);
+    SpiChnPutS(2, home_cursor, 3);
+    SpiChnPutS(2, wrap_line, 4);
 }
 
+/*************************************************************
+ * Function: clsPrint                                        *
+ * Date Created: 4/30/2014                                   *
+ * Date Last Modified: 4/30/2014                             *
+ * Description: prints the designated string to the CLS via  *
+ * the SPI                                                   *
+ * Input parameters: String to print                         *
+ * Returns: void                                             *
+ * Preconditions: PmodClS is setup for display.              *
+ * Postconditions: PmodCLS is displaying string.             *
+ *************************************************************/
 //prints the designated string to the CLS via the SPI
-void clsPrint(char* str)
-{
-    putsUART2 (str);
-	
+void clsPrint(char* str) {
+    SpiChnPutS(2, str, strlen(str) + 1);
 }
 
-
-void setupHB ( void )
-{
+/*************************************************************
+ * Function: setupHB                                         *
+ * Date Created: 4/30/2014                                   *
+ * Date Last Modified: 4/30/2014                             *
+ * Description: Sets up the HB5 for motor control.           *
+ * Input parameters: none                                    *
+ * Returns: void                                             *
+ * Preconditions: none                                       *
+ * Postconditions: Pmod HB5 is setup to power motor.         *
+ *************************************************************/
+void setupHB( void ) {
     PORTSetPinsDigitalOut( IOPORT_D, BIT_7 ); //Dir pin
     PORTClearBits(IOPORT_D,BIT_7);
     PORTSetPinsDigitalOut( IOPORT_D, BIT_1 ); //Enable pin
@@ -375,50 +426,72 @@ void setupHB ( void )
     PORTSetPinsDigitalIn(IOPORT_D,BIT_9); //Input capture pin
     //PORTSetPinsDigitalIn(IOPORT_C,BIT_1);//Akso input capture pin (why do we need 2?)
 
-
     PORTSetPinsDigitalOut( IOPORT_D, BIT_6); //Dir pin
     PORTSetBits(IOPORT_D,BIT_6);
     PORTSetPinsDigitalOut (IOPORT_D, BIT_2); //Enable pin
     PORTClearBits (IOPORT_D, BIT_2); // Make sure no waveform is outputted to Enable pin
     PORTSetPinsDigitalIn(IOPORT_D,BIT_10); //Input capture pin
     //PORTSetPinsDigitalIn(IOPORT_C,BIT_2);//Akso input capture pin
-
 }
 
-void setupOC(void)
-{
+/*************************************************************
+ * Function: setupOC                                         *
+ * Date Created: 4/30/2014                                   *
+ * Date Last Modified: 4/30/2014                             *
+ * Description: prints the designated string to the CLS via  *
+ * the SPI                                                   *
+ * Input parameters: String to print                         *
+ * Returns: void                                             *
+ * Preconditions: Ports open for HB5.                        *
+ * Postconditions: Motors are running.                       *
+ *************************************************************/
+void setupOC(void) {
     PORTSetBits( IOPORT_D, BIT_8 ); //set h bridge dir
     // The right most arguments of the OpenOC1 call represent the duty cycle of the output waveform
     OpenOC2( OC_ON | OC_TIMER_MODE16 | OC_TIMER2_SRC | OC_IDLE_STOP | OC_PWM_FAULT_PIN_DISABLE, MAX_DUTY, MAX_DUTY );
     OpenOC3( OC_ON | OC_TIMER_MODE16 | OC_TIMER2_SRC | OC_IDLE_STOP | OC_PWM_FAULT_PIN_DISABLE, MAX_DUTY, MAX_DUTY );
 }
 
-void setupInputCapture(void)
-{
+/*************************************************************
+ * Function: setupInputCapture                               *
+ * Date Created: 4/30/2014                                   *
+ * Date Last Modified: 4/30/2014                             *
+ * Description: Setups input capture for motor control       *
+ * Input parameters: none                                    *
+ * Returns: void                                             *
+ * Preconditions: none                                       *
+ * Postconditions: Interuspts will now fire when motors move.*
+ *************************************************************/
+void setupInputCapture(void) {
     OpenCapture2(IC_ON | IC_CAP_16BIT | IC_IDLE_STOP | IC_FEDGE_FALL | IC_TIMER3_SRC | IC_INT_1CAPTURE | IC_EVERY_EDGE);
     ConfigIntCapture2(IC_INT_ON | IC_INT_PRIOR_3 | IC_INT_SUB_PRIOR_0);
     OpenCapture3(IC_ON | IC_CAP_16BIT | IC_IDLE_STOP | IC_FEDGE_FALL | IC_TIMER3_SRC | IC_INT_1CAPTURE | IC_EVERY_EDGE);
     ConfigIntCapture3(IC_INT_ON | IC_INT_PRIOR_3 | IC_INT_SUB_PRIOR_0);
 }
 
-void setupSwitch ( void )
-{
+/*************************************************************
+ * Function: setupSwitch                                     *
+ * Date Created: 4/30/2014                                   *
+ * Date Last Modified: 4/30/2014                             *
+ * Description: Switch's setup for pooling.                  *
+ * Input parameters: none                                    *
+ * Returns: void                                             *
+ * Preconditions: none                                       *
+ * Postconditions: Switches setup for input.                 *
+ *************************************************************/
+void setupSwitch ( void ) {
     PORTSetPinsDigitalIn (IOPORT_D, BIT_3);
     PORTSetPinsDigitalIn (IOPORT_D, BIT_1);
-
 }
 
-//output capture interrupt handler
-void __ISR(_INPUT_CAPTURE_2_VECTOR,ipl3) Capture2Handler(void)
-{
-    motor1ticks++;
+//input capture interrupt handler
+void __ISR(_INPUT_CAPTURE_2_VECTOR,ipl3) Capture2Handler(void) {
+    disp_motor_ticks++;
     mIC2ClearIntFlag();
 }
 
-//output capture interrupt handler for the other wheel
-void __ISR(_INPUT_CAPTURE_3_VECTOR,ipl3) Capture3Handler(void)
-{
-    motor2ticks++;
+//input capture interrupt handler for the other wheel
+void __ISR(_INPUT_CAPTURE_3_VECTOR,ipl3) Capture3Handler(void) {
+    //motor2ticks++;
     mIC3ClearIntFlag();
-
 }
