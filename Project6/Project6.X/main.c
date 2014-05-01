@@ -47,7 +47,7 @@
 //FUNTIME CONSTANTS
 #define SYS_CLOCK		80000000
 #define SYSTEM_CLOCK		80000000
-#define DESIRED_BAUD_RATE	9600
+#define DESIRED_BAUD_RATE	115200
 
 #define UART_BAUD_BT            115200
 #define UART_BITS_BT            8
@@ -502,6 +502,23 @@ void setupInputCapture(void) {
 void setupSwitch ( void ) {
     PORTSetPinsDigitalIn (IOPORT_D, BIT_3);
     PORTSetPinsDigitalIn (IOPORT_D, BIT_1);
+}
+
+void setup_UART(void) {
+    int pb_clock;
+        // UART 2 port pins - connected to pmod CLS
+	/* JH-01 U2CTS/RF12 			RF12
+   	   JH-02 PMA8/U2TX/CN18/RF5 		RF5
+           JH-03 PMA9/U2RX/CN17/RF4 	        RF4
+	   JH-04 U2RTS/BCLK2/RF13 	        RF13 */
+        pb_clock = SYSTEMConfigPerformance (SYSTEM_CLOCK);
+	PORTSetPinsDigitalIn (IOPORT_F, BIT_4);
+	PORTSetPinsDigitalOut (IOPORT_F, BIT_5);
+
+        OpenUART2 (UART_EN | UART_IDLE_CON | UART_RX_TX | UART_DIS_WAKE | UART_DIS_LOOPBACK | UART_DIS_ABAUD | UART_NO_PAR_8BIT | UART_1STOPBIT | UART_IRDA_DIS |
+               UART_MODE_FLOWCTRL | UART_DIS_BCLK_CTS_RTS | UART_NORMAL_RX | UART_BRGH_SIXTEEN,
+               UART_TX_PIN_LOW | UART_RX_ENABLE | UART_TX_ENABLE | UART_INT_TX | UART_INT_RX_CHAR | UART_ADR_DETECT_DIS	| UART_RX_OVERRUN_CLEAR,
+               mUARTBRG(pb_clock, DESIRED_BAUD_RATE));
 }
 
 //output capture interrupt handler
