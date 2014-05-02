@@ -93,6 +93,10 @@ void runMotorForward();
 void stopMotors();
 void runMotorBackward();
 
+//UART helper
+void readUARTString(char* readBuff);
+
+
 
 // Tasks
 void vTaskDisplay(void *pvParameters);
@@ -202,9 +206,24 @@ void vTaskMotorControl(void *pvParameters) {
  * Preconditions: Bluetooth must be setup.                   *
  *************************************************************/
 void vTaskBluetooth(void *pvParameters) {
-    int switch_states;
+    //int switch_states;
     unsigned long ulVar = 10UL;
+    char buff[64];
     while (1){
+        //bluetooth handling
+        readUARTString(buff);
+            //read bytes until EOL
+            
+            //check for valid entry code
+        if (strcmp(buff,"open")==0)
+            xSemaphoreGive( motor_control_sem );//open door
+        else
+            //dont open door, clear buffer
+            buff[0] = 0;
+            
+            
+        //switch handling LEGACY
+        /*
         switch_states = PORTRead(IOPORT_D);
         switch_states &= 0b100000001000;
         if (switch_states == 0b1000) {
@@ -213,6 +232,7 @@ void vTaskBluetooth(void *pvParameters) {
         if (switch_states == 0b100000000000) {
         }
         vTaskDelay(250 / portTICK_RATE_MS);
+        */
     }
 }
 
@@ -471,6 +491,28 @@ void runMotorBackward()
     OpenOC2( OC_ON | OC_TIMER_MODE16 | OC_TIMER2_SRC | OC_IDLE_STOP | OC_PWM_FAULT_PIN_DISABLE, MAX_DUTY, MAX_DUTY );
 }
 
+void readUARTString(char* readBuff)
+{
+    char c;
+    int i = 0;
+    do
+    {
+        //wait on data
+        while(!DataRdyUART2())
+        {
+            //vTaskDelay(10 / portTICK_RATE_MS);
+        }
+        c = getcUART2();
+        readBuff[i]=c;
+        i++;
+        if (i == 64)
+            break;
+
+    }while ((c != '\n') && (c != '\r') && (c !=  '\0'));
+    readBuff[i-1]=0;
+    return;
+
+}
 
 
 /*************************************************************
@@ -512,8 +554,8 @@ void setup_UART(void) {
            JH-03 PMA9/U2RX/CN17/RF4 	        RF4
 	   JH-04 U2RTS/BCLK2/RF13 	        RF13 */
         pb_clock = SYSTEMConfigPerformance (SYSTEM_CLOCK);
-	PORTSetPinsDigitalIn (IOPORT_F, BIT_4);
-	PORTSetPinsDigitalOut (IOPORT_F, BIT_5);
+	PORTSetPinsDigitalIn (IOPORT_F, BIT_5);
+	PORTSetPinsDigitalOut (IOPORT_F, BIT_4);
 
         OpenUART2 (UART_EN | UART_IDLE_CON | UART_RX_TX | UART_DIS_WAKE | UART_DIS_LOOPBACK | UART_DIS_ABAUD | UART_NO_PAR_8BIT | UART_1STOPBIT | UART_IRDA_DIS |
                UART_MODE_FLOWCTRL | UART_DIS_BCLK_CTS_RTS | UART_NORMAL_RX | UART_BRGH_SIXTEEN,
