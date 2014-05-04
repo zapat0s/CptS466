@@ -62,7 +62,7 @@ static int motor_ticks = 0;
 SemaphoreHandle_t motor_control_sem;
 
 // Queues
-//QueueHandle_t motor_control_queue;
+QueueHandle_t display_queue;
 
 // Globals for setting up pmod CLS
 static char enable_display[] = {27, '[', '3', 'e', '\0'};
@@ -134,13 +134,14 @@ int main (void)
  * Preconditions: SPI2 and CLS must be setup.                *
  *************************************************************/
 void vTaskDisplay(void *pvParameters) {
+    char *msgptr;
     char clsbuff[64];
     while (1) {
-        //if ( xSemaphoreTake( display_sem, LONG_TIME ) == pdTRUE ) {
-            //sprintf(clsbuff,"T %4.1ff A %4.1ff Dist %4.1fft", tempInDegreesF, avgTemperatureInF, total_traveled);
-        //}
-        //xSemaphoreGive(display_sem);
-        sprintf(clsbuff, "%d", motor_ticks);
+        if( xQueueReceive( display_queue, &( msgptr ), ( TickType_t ) 10 ) )
+        {
+            sprintf(clsbuff, "%s", msgptr);
+        }
+        //sprintf(clsbuff, "%d", motor_ticks);
         clsPrint(clsbuff);
         SpiChnPutS(2, home_cursor, 3);
         vTaskDelay(500 / portTICK_RATE_MS); // 0.5 s delay
@@ -159,15 +160,19 @@ void vTaskDisplay(void *pvParameters) {
 void vTaskMotorControl(void *pvParameters) {
     int LINELENGTH=1600;
     int state = 0;
+    char *opening_msg = "Opening";
+    char *done_msg = "Done";
+
     while (1){
         if (state == 0) {
-            if( xSemaphoreTake( motor_control_sem, ( TickType_t ) 10 ) == pdTRUE ) {
+            if( xSemaphoreTake( motor_control_sem, (TickType_t) 10 ) == pdTRUE ) {
                 state = 1;
                 motor_ticks = 0;
             }
         }
         //pull the door handle down
         if (state == 1) {
+            xQueueSend(displayQueue, (void*)opening_msg, (TickType_t) 0);
             stopMotors();
             runMotorForward();
             state = 2;
@@ -182,6 +187,7 @@ void vTaskMotorControl(void *pvParameters) {
             runMotorBackward();
         }
         if ((motor_ticks > LINELENGTH) && (state == 3)) {
+            xQueueSend(displayQueue, (void*)done_msg, (TickType_t) 0);
             stopMotors();
             state = 0;
         }
