@@ -179,7 +179,7 @@ void vTaskMotorControl(void *pvParameters) {
         }
         //pull the door handle down
         if (state == 1) {
-            xQueueSend(displayQueue, (void*)opening_msg, (TickType_t) 0);
+            xQueueSend(display_queue, (void*)opening_msg, (TickType_t) 0);
             stopMotors();
             runMotorForward();
             state = 2;
@@ -194,7 +194,7 @@ void vTaskMotorControl(void *pvParameters) {
             runMotorBackward();
         }
         if ((motor_ticks > LINELENGTH) && (state == 3)) {
-            xQueueSend(displayQueue, (void*)done_msg, (TickType_t) 0);
+            xQueueSend(display_queue, (void*)done_msg, (TickType_t) 0);
             stopMotors();
             state = 0;
         }
@@ -270,7 +270,7 @@ static void prvSetupHardware( void ) {
 
 	portDISABLE_INTERRUPTS();
 
-        //setup_UART();
+        setup_UART();
         setupSPI_ports();
         setup_SPI2();
         initialize_CLS ();
@@ -559,14 +559,20 @@ void setup_UART(void) {
    	   JH-02 PMA8/U2TX/CN18/RF5 		RF5
            JH-03 PMA9/U2RX/CN17/RF4 	        RF4
 	   JH-04 U2RTS/BCLK2/RF13 	        RF13 */
-        pb_clock = SYSTEMConfigPerformance (SYSTEM_CLOCK);
-	PORTSetPinsDigitalIn (IOPORT_F, BIT_5);
-	PORTSetPinsDigitalOut (IOPORT_F, BIT_4);
 
-        OpenUART2 (UART_EN | UART_IDLE_CON | UART_RX_TX | UART_DIS_WAKE | UART_DIS_LOOPBACK | UART_DIS_ABAUD | UART_NO_PAR_8BIT | UART_1STOPBIT | UART_IRDA_DIS |
-               UART_MODE_FLOWCTRL | UART_DIS_BCLK_CTS_RTS | UART_NORMAL_RX | UART_BRGH_SIXTEEN,
-               UART_TX_PIN_LOW | UART_RX_ENABLE | UART_TX_ENABLE | UART_INT_TX | UART_INT_RX_CHAR | UART_ADR_DETECT_DIS	| UART_RX_OVERRUN_CLEAR,
-               mUARTBRG(pb_clock, DESIRED_BAUD_RATE));
+    pb_clock = SYSTEMConfigPerformance (SYSTEM_CLOCK);
+    PORTSetPinsDigitalIn (IOPORT_F, BIT_4);
+    PORTSetPinsDigitalOut (IOPORT_F, BIT_5);
+/*
+    OpenUART2 (UART_EN | UART_IDLE_CON | UART_RX_TX | UART_DIS_WAKE | UART_DIS_LOOPBACK | UART_DIS_ABAUD | UART_NO_PAR_8BIT | UART_1STOPBIT | UART_IRDA_DIS |
+           UART_MODE_FLOWCTRL | UART_DIS_BCLK_CTS_RTS | UART_NORMAL_RX | UART_BRGH_SIXTEEN,
+           UART_TX_PIN_LOW | UART_RX_ENABLE | UART_TX_ENABLE | UART_INT_TX | UART_INT_RX_CHAR | UART_ADR_DETECT_DIS	| UART_RX_OVERRUN_CLEAR,
+           mUARTBRG(pb_clock, DESIRED_BAUD_RATE));
+    */
+    UARTSetDataRate(UART2, 10000000, DESIRED_BAUD_RATE);
+    U2STA = 0x1400;
+    U2MODE = 0x8000;
+    U2TXREG = 'L';
 }
 
 //output capture interrupt handler
