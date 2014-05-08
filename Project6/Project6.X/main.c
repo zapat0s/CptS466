@@ -113,7 +113,7 @@ int main (void)
 
     // Setup Queues and Semephores
     motor_control_sem = xSemaphoreCreateBinary();
-    //motor_control_queue = xQueueCreate(10, sizeof( unsigned int ));
+    display_queue = xQueueCreate(10, sizeof( unsigned int ));
 
     // Can you draw the execution pattern diagram for these tasks?
     xTaskCreate (vTaskDisplay, "Update Display", configMINIMAL_STACK_SIZE, NULL,
@@ -223,8 +223,7 @@ void vTaskBluetooth(void *pvParameters) {
             //check for valid entry code
         if (strcmp(buff,"open")==0)
             xSemaphoreGive( motor_control_sem );//open door
-        else
-            //dont open door, clear buffer
+        else //dont open door, clear buffer
             buff[0] = 0;
             
             
@@ -569,7 +568,7 @@ void setup_UART(void) {
            UART_TX_PIN_LOW | UART_RX_ENABLE | UART_TX_ENABLE | UART_INT_TX | UART_INT_RX_CHAR | UART_ADR_DETECT_DIS	| UART_RX_OVERRUN_CLEAR,
            mUARTBRG(pb_clock, DESIRED_BAUD_RATE));
     */
-    UARTSetDataRate(UART2, 10000000, DESIRED_BAUD_RATE);
+    UARTSetDataRate(UART2, pb_clock, DESIRED_BAUD_RATE);
     U2STA = 0x1400;
     U2MODE = 0x8000;
     U2TXREG = 'L';
