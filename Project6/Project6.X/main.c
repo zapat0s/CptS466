@@ -144,10 +144,10 @@ void vTaskDisplay(void *pvParameters) {
     char *msgptr;
     char clsbuff[64];
     while (1) {
-        if( xQueueReceive( display_queue, &( msgptr ), ( TickType_t ) 10 ) )
-        {
+        //if( xQueueReceive( display_queue, &( msgptr ), ( TickType_t ) 10 ) )
+        //{
             sprintf(clsbuff, "%s", msgptr);
-        }
+        //}
         //sprintf(clsbuff, "%d", motor_ticks);
         clsPrint(clsbuff);
         SpiChnPutS(2, home_cursor, 3);
@@ -165,7 +165,7 @@ void vTaskDisplay(void *pvParameters) {
  * Preconditions: HB5 and Output Compare must be setup.      *
  *************************************************************/
 void vTaskMotorControl(void *pvParameters) {
-    int LINELENGTH=1600;
+    int LINELENGTH=1200;
     int state = 0;
     char *opening_msg = "Opening";
     char *done_msg = "Done";
@@ -175,11 +175,11 @@ void vTaskMotorControl(void *pvParameters) {
             if( xSemaphoreTake( motor_control_sem, (TickType_t) 10 ) == pdTRUE ) {
                 state = 1;
                 motor_ticks = 0;
+                xQueueSend(display_queue, (void*)opening_msg, (TickType_t) 0);
             }
         }
         //pull the door handle down
         if (state == 1) {
-            xQueueSend(display_queue, (void*)opening_msg, (TickType_t) 0);
             stopMotors();
             runMotorForward();
             state = 2;
@@ -196,6 +196,7 @@ void vTaskMotorControl(void *pvParameters) {
         if ((motor_ticks > LINELENGTH) && (state == 3)) {
             xQueueSend(display_queue, (void*)done_msg, (TickType_t) 0);
             stopMotors();
+            motor_ticks = 0;
             state = 0;
         }
         vTaskDelay(250 / portTICK_RATE_MS);
@@ -454,11 +455,11 @@ void clsPrint(char* str) {
  * Postconditions: Pmod HB5 is setup to power motor.         *
  *************************************************************/
 void setupHB( void ) {
-    PORTSetPinsDigitalOut( IOPORT_D, BIT_6); //Dir pin
+    PORTSetPinsDigitalOut( IOPORT_D, BIT_7); //Dir pin
     PORTSetBits(IOPORT_D,BIT_6);
-    PORTSetPinsDigitalOut (IOPORT_D, BIT_2); //Enable pin
-    PORTClearBits (IOPORT_D, BIT_2); // Make sure no waveform is outputted to Enable pin
-    PORTSetPinsDigitalIn(IOPORT_D,BIT_10); //Input capture pin
+    PORTSetPinsDigitalOut (IOPORT_D, BIT_1); //Enable pin
+    PORTClearBits (IOPORT_D, BIT_1); // Make sure no waveform is outputted to Enable pin
+    PORTSetPinsDigitalIn(IOPORT_D,BIT_9); //Input capture pin
     //PORTSetPinsDigitalIn(IOPORT_C,BIT_2);//Akso input capture pin
 }
 
@@ -480,13 +481,14 @@ void setupOC(void) {
 
 //start the motor running forward
 void runMotorForward() {
-    PORTClearBits(IOPORT_D,BIT_7); //set h bridge dir
+    PORTClearBits(IOPORT_D, BIT_7); //set h bridge dir
     OpenOC2( OC_ON | OC_TIMER_MODE16 | OC_TIMER2_SRC | OC_IDLE_STOP | OC_PWM_FAULT_PIN_DISABLE, MAX_DUTY, MAX_DUTY );
 }
 
 //stop motor
 void stopMotors() {
     CloseOC2();
+    PORTClearBits(IOPORT_D, BIT_1);
 }
 
 //start the motor running backwards
