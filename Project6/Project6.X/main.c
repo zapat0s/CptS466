@@ -141,13 +141,13 @@ int main (void)
  * Preconditions: SPI2 and CLS must be setup.                *
  *************************************************************/
 void vTaskDisplay(void *pvParameters) {
-    char *msgptr;
+    char msgbuff[64];
     char clsbuff[64];
     while (1) {
-        //if( xQueueReceive( display_queue, &( msgptr ), ( TickType_t ) 10 ) )
-        //{
-            sprintf(clsbuff, "%s", msgptr);
-        //}
+        if( xQueueReceive( display_queue, msgbuff, ( TickType_t ) 10 ) )
+        {
+            sprintf(clsbuff, "%s", msgbuff);
+        }
         //sprintf(clsbuff, "%d", motor_ticks);
         clsPrint(clsbuff);
         SpiChnPutS(2, home_cursor, 3);
@@ -167,8 +167,8 @@ void vTaskDisplay(void *pvParameters) {
 void vTaskMotorControl(void *pvParameters) {
     int LINELENGTH=1200;
     int state = 0;
-    char *opening_msg = "Opening";
-    char *done_msg = "Done";
+    char *opening_msg = "Opn";
+    char *done_msg = "Don";
 
     while (1){
         if (state == 0) {
